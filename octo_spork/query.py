@@ -1,15 +1,16 @@
+''' Immutable objects to represent data queries. '''
 
 import collections
-import datetime
 
 from .exceptions import DecompositionError
+from .utils import TypingMixin
 
 
-class Column(collections.namedtuple('Column', ['table', 'name'])):
+class Column(TypingMixin, collections.namedtuple('Column', ['table', 'name'])):
     pass
 
 
-class In(collections.namedtuple('In', ['column', 'valueset'])):
+class In(TypingMixin, collections.namedtuple('In', ['column', 'valueset'])):
 
     def __new__(cls, column, valueset):
         return super().__new__(cls, column, frozenset(valueset))
@@ -34,7 +35,7 @@ class In(collections.namedtuple('In', ['column', 'valueset'])):
         return Not(self)
 
 
-class And(collections.namedtuple('And', ['expressions'])):
+class And(TypingMixin, collections.namedtuple('And', ['expressions'])):
 
     def __new__(cls, expressions):
         return super().__new__(cls, frozenset(expressions))
@@ -59,7 +60,7 @@ class And(collections.namedtuple('And', ['expressions'])):
         return frozenset(_columns)
 
 
-class Or(collections.namedtuple('Or', ['expressions'])):
+class Or(TypingMixin, collections.namedtuple('Or', ['expressions'])):
 
     def __new__(cls, expressions):
         return super().__new__(cls, frozenset(expressions))
@@ -84,7 +85,7 @@ class Or(collections.namedtuple('Or', ['expressions'])):
         return frozenset(_columns)
 
 
-class Between(collections.namedtuple('Between', ['column', 'lower', 'upper'])):
+class Between(TypingMixin, collections.namedtuple('Between', ['column', 'lower', 'upper'])):
 
     def decompose(self, other):
         if isinstance(other, self.__class__):
@@ -109,11 +110,11 @@ class Between(collections.namedtuple('Between', ['column', 'lower', 'upper'])):
         return frozenset({self.column})
 
 
-class Not(collections.namedtuple('Not', ['expression'])):
+class Not(TypingMixin, collections.namedtuple('Not', ['expression'])):
     pass
 
 
-class GE(collections.namedtuple('GE', ['column', 'value'])):
+class GE(TypingMixin, collections.namedtuple('GE', ['column', 'value'])):
 
     __symbol__ = '>='
 
@@ -121,28 +122,28 @@ class GE(collections.namedtuple('GE', ['column', 'value'])):
         return LT(self.column, self.value)
 
 
-class GT(collections.namedtuple('GT', ['column', 'value'])):
+class GT(TypingMixin, collections.namedtuple('GT', ['column', 'value'])):
 
     __symbol__ = '>'
 
     def inverse(self):
-        return LT(self.column, self.value)
+        return LE(self.column, self.value)
 
 
-class LE(collections.namedtuple('LE', ['column', 'value'])):
+class LE(TypingMixin, collections.namedtuple('LE', ['column', 'value'])):
 
     __symbol__ = '<='
 
     def inverse(self):
-        return LT(self.column, self.value)
+        return GT(self.column, self.value)
 
 
-class LT(collections.namedtuple('LT', ['column', 'value'])):
+class LT(TypingMixin, collections.namedtuple('LT', ['column', 'value'])):
 
     __symbol__ = '<'
 
     def inverse(self):
-        return LT(self.column, self.value)
+        return GE(self.column, self.value)
 
 
 def decompose_where(where_main, where_other):
@@ -165,7 +166,7 @@ def decompose_select(select_main, select_other):
 Join = collections.namedtuple('Join', ['main', 'joined', 'kind'])
 
 
-class Query(collections.namedtuple('Query', ['table', 'select', 'where'])):
+class Query(TypingMixin, collections.namedtuple('Query', ['table', 'select', 'where'])):
 
     def __new__(cls, table, select=None, where=None):
         # TODO verify components are of correct type and are hashable

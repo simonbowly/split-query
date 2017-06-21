@@ -1,3 +1,4 @@
+''' Writing SQL from query objects. '''
 
 import datetime
 

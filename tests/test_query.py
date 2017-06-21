@@ -52,7 +52,6 @@ col6 = Column('table6', 'column6')
     (None, LT(col1, 1), None, GE(col1, 1)),
     ])
 def test_decompose_where(query, source, refine, remainder):
-    hash((query, source, refine, remainder))
     assert decompose_where(query, source) == (refine, remainder)
 
 
@@ -63,7 +62,6 @@ def test_decompose_where(query, source, refine, remainder):
     (Between(col1, 0, 1), Between(col2, 0, 2)),
     ])
 def test_decompose_where_error(query, source):
-    hash((query, source))
     with pytest.raises(DecompositionError):
         decompose_where(query, source)
 
