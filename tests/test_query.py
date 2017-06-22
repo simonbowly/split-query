@@ -1,6 +1,8 @@
 ''' Query relationship tests. Also verifies any query specifications are
 hashable (objects are intended to be immutable). '''
 
+from datetime import datetime
+
 import pytest
 
 from octo_spork.query import (
@@ -98,6 +100,15 @@ eq1c = EqualTo(col1c, 1)
     dict(
         query=None, source=Range(col1a, 0, 1, True, True), refine=None,
         remainder=Or([LessThan(col1a, 0), GreaterThan(col1a, 1)])),
+    dict(
+        query=None, refine=None,
+        source=Range(
+            col1a, incl_lower=True, incl_upper=True,
+            lower=datetime(2015, 1, 1, 0, 0, 0),
+            upper=datetime(2016, 1, 1, 0, 0, 0)),
+        remainder=Or([
+            LessThan(col1a, datetime(2015, 1, 1, 0, 0, 0)),
+            GreaterThan(col1a, datetime(2016, 1, 1, 0, 0, 0))])),
     # Logical compositions
     dict(
         query=And([eq1a, eq1b]), source=And([eq1a, eq1c]),

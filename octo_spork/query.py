@@ -1,6 +1,7 @@
 ''' Immutable objects to represent data queries. '''
 
 import collections
+from datetime import datetime
 import math
 
 from .exceptions import DecompositionError
@@ -28,7 +29,21 @@ class In(TypingMixin, collections.namedtuple('In', ['column', 'valueset'])):
         return frozenset({self.column})
 
 
-class Range(TypingMixin, collections.namedtuple('Range', ['column', 'lower', 'upper', 'incl_lower', 'incl_upper'])):
+class Range(TypingMixin, collections.namedtuple('Range', ['column', 'lower', 'upper', 'incl_lower', 'incl_upper', 'lower_inf', 'upper_inf', 'data_type'])):
+
+    def __new__(cls, column, lower, upper, incl_lower, incl_upper, data_type=None):
+        if data_type is datetime or type(lower) is datetime or type(upper) is datetime:
+            lower_inf = datetime.min
+            upper_inf = datetime.max
+            data_type = datetime
+        else:
+            lower_inf = -math.inf
+            upper_inf = math.inf
+        if lower is None:
+            lower = lower_inf
+        if upper is None:
+            upper = upper_inf
+        return super().__new__(cls, column, lower, upper, incl_lower, incl_upper, lower_inf, upper_inf, data_type)
 
     @property
     def columns(self):
@@ -74,23 +89,23 @@ class Not(TypingMixin, collections.namedtuple('Not', ['expression'])):
 
 
 def GreaterThan(column, value):
-    return Range(column, lower=value, upper=math.inf, incl_lower=False, incl_upper=False)
+    return Range(column, lower=value, upper=None, incl_lower=False, incl_upper=False)
 
 
 def GreaterThanOrEqualTo(column, value):
-    return Range(column, lower=value, upper=math.inf, incl_lower=True, incl_upper=False)
+    return Range(column, lower=value, upper=None, incl_lower=True, incl_upper=False)
 
 
 def LessThan(column, value):
-    return Range(column, lower=-math.inf, upper=value, incl_lower=False, incl_upper=False)
+    return Range(column, lower=None, upper=value, incl_lower=False, incl_upper=False)
 
 
 def LessThanOrEqualTo(column, value):
-    return Range(column, lower=-math.inf, upper=value, incl_lower=False, incl_upper=True)
+    return Range(column, lower=None, upper=value, incl_lower=False, incl_upper=True)
 
 
-def InfiniteRange(column):
-    return Range(column, lower=-math.inf, upper=math.inf, incl_lower=False, incl_upper=False)
+def InfiniteRange(column, data_type):
+    return Range(column, lower=None, upper=None, incl_lower=False, incl_upper=False, data_type=data_type)
 
 
 class Query(TypingMixin, collections.namedtuple('Query', ['table', 'select', 'where'])):
@@ -143,7 +158,7 @@ def decompose(query, source):
     # No filters on query.
     if query is None:
         if type(source) is Range:
-            return decompose(InfiniteRange(source.column), source)
+            return decompose(InfiniteRange(source.column, source.data_type), source)
 
     # Logical compositions.
     if type(query) is And and type(source) is not And:

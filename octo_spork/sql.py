@@ -30,11 +30,11 @@ def to_sql(obj, alias_map=None):
     # Logical expressions.
     if type(obj) is Range:
         expr = []
-        if obj.lower > -math.inf:
+        if obj.lower > obj.lower_inf:
             expr.append("{} {} {}".format(
                 to_sql(obj.column), ">=" if obj.incl_lower else ">",
                 to_sql(obj.lower)))
-        if obj.upper < math.inf:
+        if obj.upper < obj.upper_inf:
             expr.append("{} {} {}".format(
                 to_sql(obj.column), "<=" if obj.incl_upper else "<",
                 to_sql(obj.upper)))

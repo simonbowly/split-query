@@ -15,3 +15,8 @@ class SQLRepresentationError(Exception):
     ''' Thrown when a valid SQL representation of a query could not be
     created. Used in .sql module. '''
     pass
+
+
+class EngineError(Exception):
+    ''' Thrown when the engine cannot perform the given operation on data. '''
+    pass
