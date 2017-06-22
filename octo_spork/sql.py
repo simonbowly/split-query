@@ -1,9 +1,10 @@
 ''' Writing SQL from query objects. '''
 
 import datetime
+import math
 
 from .exceptions import SQLRepresentationError
-from .query import Column, GE, GT, LE, LT, In, And, Or, Between, Not
+from .query import Column, In, And, Or, Range
 
 
 def to_sql(obj, alias_map=None):
@@ -27,9 +28,17 @@ def to_sql(obj, alias_map=None):
         return "'{}'".format(obj.isoformat())
 
     # Logical expressions.
-    if type(obj) in {GE, GT, LE, LT}:
-        return "{} {} {}".format(
-            to_sql(obj.column), obj.__symbol__, to_sql(obj.value))
+    if type(obj) is Range:
+        expr = []
+        if obj.lower > -math.inf:
+            expr.append("{} {} {}".format(
+                to_sql(obj.column), ">=" if obj.incl_lower else ">",
+                to_sql(obj.lower)))
+        if obj.upper < math.inf:
+            expr.append("{} {} {}".format(
+                to_sql(obj.column), "<=" if obj.incl_upper else "<",
+                to_sql(obj.upper)))
+        return ' and '.join(expr)
     if type(obj) is In:
         return "{} in ({})".format(
             to_sql(obj.column),
@@ -42,10 +51,10 @@ def to_sql(obj, alias_map=None):
         return ' or '.join(
             "({})".format(to_sql(expression))
             for expression in sorted(obj.expressions))
-    if type(obj) is Between:
-        return "{} between {} and {}".format(
-            to_sql(obj.column), to_sql(obj.lower), to_sql(obj.upper))
-    if type(obj) is Not:
-        return "not {}".format(to_sql(obj.expression))
+    # if type(obj) is Between:
+    #     return "{} between {} and {}".format(
+    #         to_sql(obj.column), to_sql(obj.lower), to_sql(obj.upper))
+    # if type(obj) is Not:
+    #     return "not {}".format(to_sql(obj.expression))
 
     raise SQLRepresentationError("Cannot represent type {} as SQL".format(type(obj)))

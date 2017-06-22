@@ -1,6 +1,7 @@
 ''' Immutable objects to represent data queries. '''
 
 import collections
+import math
 
 from .exceptions import DecompositionError
 from .utils import TypingMixin
@@ -10,29 +11,28 @@ class Column(TypingMixin, collections.namedtuple('Column', ['table', 'name'])):
     pass
 
 
-class In(TypingMixin, collections.namedtuple('In', ['column', 'valueset'])):
-
-    def __new__(cls, column, valueset):
-        return super().__new__(cls, column, frozenset(valueset))
-
-    def decompose(self, other):
-        ''' Return refine, remainder for other expression to satisfy this one. '''
-        if isinstance(other, self.__class__) and other.column == self.column:
-            refine = None
-            if other.valueset.difference(self.valueset):
-                refine = self.__class__(self.column, self.valueset.intersection(other.valueset))
-            remainder = None
-            if self.valueset.difference(other.valueset):
-                remainder = self.__class__(self.column, self.valueset.difference(other.valueset))
-            return refine, remainder
-        raise DecompositionError('')
+class EqualTo(TypingMixin, collections.namedtuple('EqualTo', ['column', 'value'])):
 
     @property
     def columns(self):
         return frozenset({self.column})
 
-    def inverse(self):
-        return Not(self)
+
+class In(TypingMixin, collections.namedtuple('In', ['column', 'valueset'])):
+
+    def __new__(cls, column, valueset):
+        return super().__new__(cls, column, frozenset(valueset))
+
+    @property
+    def columns(self):
+        return frozenset({self.column})
+
+
+class Range(TypingMixin, collections.namedtuple('Range', ['column', 'lower', 'upper', 'incl_lower', 'incl_upper'])):
+
+    @property
+    def columns(self):
+        return frozenset({self.column})
 
 
 class And(TypingMixin, collections.namedtuple('And', ['expressions'])):
@@ -40,24 +40,17 @@ class And(TypingMixin, collections.namedtuple('And', ['expressions'])):
     def __new__(cls, expressions):
         return super().__new__(cls, frozenset(expressions))
 
-    def decompose(self, other):
-        if isinstance(other, self.__class__):
-            if self.expressions.difference(other.expressions):
-                expr = self.expressions.difference(other.expressions)
-                return list(expr)[0] if len(expr) == 1 else And(expr), None
-            if self.expressions == other.expressions:
-                return None, None
-        else:
-            # Other is a single expression, wrap it in And so it is comparable.
-            return self.decompose(self.__class__({other}))
-        raise DecompositionError('')
-
     @property
     def columns(self):
         _columns = set()
         for expression in self.expressions:
             _columns.update(expression.columns)
         return frozenset(_columns)
+
+    def simplify(self):
+        return (
+            next(iter(self.expressions))
+            if len(self.expressions) == 1 else self)
 
 
 class Or(TypingMixin, collections.namedtuple('Or', ['expressions'])):
@@ -65,18 +58,6 @@ class Or(TypingMixin, collections.namedtuple('Or', ['expressions'])):
     def __new__(cls, expressions):
         return super().__new__(cls, frozenset(expressions))
 
-    def decompose(self, other):
-        if isinstance(other, self.__class__):
-            if self.expressions.difference(other.expressions):
-                expr = self.expressions.difference(other.expressions)
-                return None, list(expr)[0] if len(expr) == 1 else And(expr)
-            if self.expressions == other.expressions:
-                return None, None
-        else:
-            # Other is a single expression, wrap it in And so it is comparable.
-            return self.decompose(self.__class__({other}))
-        raise DecompositionError('')
-
     @property
     def columns(self):
         _columns = set()
@@ -85,85 +66,31 @@ class Or(TypingMixin, collections.namedtuple('Or', ['expressions'])):
         return frozenset(_columns)
 
 
-class Between(TypingMixin, collections.namedtuple('Between', ['column', 'lower', 'upper'])):
-
-    def decompose(self, other):
-        if isinstance(other, self.__class__):
-            if other.column == self.column:
-                refine, remainder = None, None
-                if other.lower < self.lower or other.upper > self.upper:
-                    # Something in the result still needs to be filtered out.
-                    refine = self
-                if other.lower > self.lower:
-                    remainder = Between(self.column, self.lower, other.lower)
-                if other.upper < self.upper:
-                    upper_remainder = Between(self.column, other.upper, self.upper)
-                    if remainder is None:
-                        remainder = upper_remainder
-                    else:
-                        remainder = Or([remainder, upper_remainder])
-                return refine, remainder
-        raise DecompositionError('')
+class Not(TypingMixin, collections.namedtuple('Not', ['expression'])):
 
     @property
     def columns(self):
-        return frozenset({self.column})
+        return frozenset({self.expression.column})
 
 
-class Not(TypingMixin, collections.namedtuple('Not', ['expression'])):
-    pass
+def GreaterThan(column, value):
+    return Range(column, lower=value, upper=math.inf, incl_lower=False, incl_upper=False)
 
 
-class GE(TypingMixin, collections.namedtuple('GE', ['column', 'value'])):
-
-    __symbol__ = '>='
-
-    def inverse(self):
-        return LT(self.column, self.value)
+def GreaterThanOrEqualTo(column, value):
+    return Range(column, lower=value, upper=math.inf, incl_lower=True, incl_upper=False)
 
 
-class GT(TypingMixin, collections.namedtuple('GT', ['column', 'value'])):
-
-    __symbol__ = '>'
-
-    def inverse(self):
-        return LE(self.column, self.value)
+def LessThan(column, value):
+    return Range(column, lower=-math.inf, upper=value, incl_lower=False, incl_upper=False)
 
 
-class LE(TypingMixin, collections.namedtuple('LE', ['column', 'value'])):
-
-    __symbol__ = '<='
-
-    def inverse(self):
-        return GT(self.column, self.value)
+def LessThanOrEqualTo(column, value):
+    return Range(column, lower=-math.inf, upper=value, incl_lower=False, incl_upper=True)
 
 
-class LT(TypingMixin, collections.namedtuple('LT', ['column', 'value'])):
-
-    __symbol__ = '<'
-
-    def inverse(self):
-        return GE(self.column, self.value)
-
-
-def decompose_where(where_main, where_other):
-    if where_main is None:
-        return None, where_other.inverse()
-    if where_other is None:
-        return where_main, None
-    return where_main.decompose(where_other)
-
-
-def decompose_select(select_main, select_other):
-    ''' Assumes set data structures as stored by Query. '''
-    if select_main == select_other:
-        return None
-    if select_main.issubset(select_other):
-        return select_main
-    raise DecompositionError('')
-
-
-Join = collections.namedtuple('Join', ['main', 'joined', 'kind'])
+def InfiniteRange(column):
+    return Range(column, lower=-math.inf, upper=math.inf, incl_lower=False, incl_upper=False)
 
 
 class Query(TypingMixin, collections.namedtuple('Query', ['table', 'select', 'where'])):
@@ -187,3 +114,92 @@ class Query(TypingMixin, collections.namedtuple('Query', ['table', 'select', 'wh
         _tables = {column.table for column in self.columns}
         _tables.add(self.table)
         return frozenset(_tables)
+
+
+def decompose(query, source):
+
+    # Query objects: break down into columns and filters.
+    if type(query) is Query and type(source) is Query:
+        refine, remainder = None, None
+        refine_where, remainder_where = decompose(query.where, source.where)
+        source_missing = query.select - source.select
+        if source_missing:
+            raise DecompositionError()
+        source_extra = source.select - query.select
+        if source_extra:
+            refine = Query(table=query.table, select=query.select, where=refine_where)
+        if remainder_where is not None:
+            remainder = Query(table=query.table, select=query.select, where=remainder_where)
+        return refine, remainder
+
+    # Exact match. Nothing to filter out or add.
+    if query == source:
+        return None, None
+
+    # No filters on source.
+    if source is None:  # Need some standing "where anything"?
+        return query, None
+
+    # No filters on query.
+    if query is None:
+        if type(source) is Range:
+            return decompose(InfiniteRange(source.column), source)
+
+    # Logical compositions.
+    if type(query) is And and type(source) is not And:
+        return decompose(query, And([source]))
+    if type(query) is not And and type(source) is And:
+        return decompose(And([query]), source)
+    if type(query) is And and type(source) is And:
+        refine, remainder = None, None
+        # Missing expressions in source require refinement.
+        source_missing = query.expressions - source.expressions
+        if source_missing:
+            refine = And(source_missing).simplify()
+        # Extra expressions in source contribute partials.
+        source_extra = source.expressions - query.expressions
+        if source_extra:
+            remainder = And(query.expressions.union({Not(And(source_extra).simplify())}))
+        return refine, remainder
+
+    # Matchable single statements.
+    if type(query) is type(source) and query.column == source.column:
+
+        _type = type(query)
+        column = query.column
+
+        if _type is In:
+            refine, remainder = None, None
+            if source.valueset.difference(query.valueset):
+                refine = In(column, query.valueset.intersection(source.valueset))
+            if query.valueset.difference(source.valueset):
+                remainder = In(column, query.valueset.difference(source.valueset))
+            return refine, remainder
+
+        if _type is Range:
+            refine, remainder = None, None
+            # Check if source query needs refining.
+            if source.lower < query.lower:
+                refine = query
+            if source.upper > query.upper:
+                refine = query
+            # Check if part of the range is missing.
+            if source.lower > query.lower:
+                remainder = Range(
+                    column, lower=query.lower, upper=source.lower,
+                    incl_lower=query.incl_lower,
+                    incl_upper=not source.incl_lower)
+            if source.upper < query.upper:
+                _rem = Range(
+                    column, lower=source.upper, upper=query.upper,
+                    incl_lower=not source.incl_upper,
+                    incl_upper=query.incl_upper)
+                # In case multiple parts are needed.
+                if remainder is None:
+                    remainder = _rem
+                else:
+                    remainder = Or([remainder, _rem])
+
+            return refine, remainder
+
+    raise DecompositionError()

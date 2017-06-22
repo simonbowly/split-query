@@ -4,96 +4,152 @@ hashable (objects are intended to be immutable). '''
 import pytest
 
 from octo_spork.query import (
-    Column, In, And, Between, Or, Not,
-    GE, GT, LE, LT,
-    Query, DecompositionError,
-    decompose_where, decompose_select)
+    Column, EqualTo, In, And, Or, Not, Range,
+    GreaterThan, GreaterThanOrEqualTo, LessThan, LessThanOrEqualTo,
+    Query, DecompositionError, decompose)
 
 
-col1 = Column('table1', 'column1')
-col2 = Column('table1', 'column2')
-col3 = Column('table1', 'column3')
-col4 = Column('table4', 'column4')
-col5 = Column('table5', 'column5')
-col6 = Column('table6', 'column6')
+col1a = Column('table1', 'columna')
+col1b = Column('table1', 'columnb')
+col1c = Column('table1', 'columnc')
+col2x = Column('table2', 'columnx')
+col2y = Column('table2', 'columny')
+col2z = Column('table2', 'columnz')
+
+eq1a = EqualTo(col1a, 1)
+eq1b = EqualTo(col1b, 1)
+eq1c = EqualTo(col1c, 1)
 
 
-@pytest.mark.parametrize('query, source, refine, remainder', [
-    # Value set constraints for single column.
-    (In(col1, [1, 2]), None, In(col1, [1, 2]), None),
-    (In(col1, [1]), In(col1, [1, 2]), In(col1, [1]), None),
-    (In(col1, [1, 2]), In(col1, [1]), None, In(col1, [2])),
-    (In(col1, [1, 2]), In(col1, [1, 3]), In(col1, [1]), In(col1, [2])),
-    # AND composition: refinements required on supersets.
-    (And(['e1']), 'e1', None, None),
-    (And(['e1', 'e2']), And(['e1', 'e2']), None, None),
-    (And(['e1', 'e2']), 'e1', 'e2', None),
-    (And(['e1', 'e2', 'e3']), And(['e1', 'e2']), 'e3', None),
-    # OR composition: remainders required on subsets.
-    (Or(['e1']), 'e1', None, None),
-    (Or(['e1', 'e2']), Or(['e1', 'e2']), None, None),
-    (Or(['e1', 'e2']), 'e1', None, 'e2'),   # Should be NOT in remainder
-    (Or(['e1', 'e2', 'e3']), Or(['e1', 'e2']), None, 'e3'),     # Should be not in remainder
-    # Range expressions.
-    (Between(col1, 0, 5), Between(col1, 0, 5), None, None),
-    (Between(col1, 0, 5), Between(col1, -2, 5), Between(col1, 0, 5), None),
-    (Between(col1, 0, 5), Between(col1, 0, 7), Between(col1, 0, 5), None),
-    (Between(col1, 0, 5), Between(col1, -2, 7), Between(col1, 0, 5), None),
-    (Between(col1, 0, 5), Between(col1, 2, 5), None, Between(col1, 0, 2)),
-    (Between(col1, 0, 5), Between(col1, 0, 3), None, Between(col1, 3, 5)),
-    (Between(col1, 0, 5), Between(col1, 2, 7), Between(col1, 0, 5), Between(col1, 0, 2)),
-    (Between(col1, 0, 5), Between(col1, -2, 3), Between(col1, 0, 5), Between(col1, 3, 5)),
-    (Between(col1, 0, 5), Between(col1, 1, 4), None, Or([Between(col1, 0, 1), Between(col1, 4, 5)])),
-    # Partial results of full query.
-    (None, In(col1, [1, 2]), None, Not(In(col1, [1, 2]))),
-    (None, GE(col1, 1), None, LT(col1, 1)),
-    (None, GT(col1, 1), None, LE(col1, 1)),
-    (None, LE(col1, 1), None, GT(col1, 1)),
-    (None, LT(col1, 1), None, GE(col1, 1)),
+@pytest.mark.parametrize('testcase', [
+    # Identical objects.
+    dict(
+        query=EqualTo(col1a, 2), source=EqualTo(col1a, 2),
+        refine=None, remainder=None),
+    # Unfiltered source.
+    dict(
+        query=EqualTo(col1a, 2), source=None,
+        refine=EqualTo(col1a, 2), remainder=None),
+    # Superset, refine.
+    dict(
+        query=In(col1a, [1, 2, 3]), source=In(col1a, [1, 2, 3, 4]),
+        refine=In(col1a, [1, 2, 3]), remainder=None),
+    # Subset, remainder.
+    dict(
+        query=In(col1a, [1, 2, 3, 4]), source=In(col1a, [1, 2]),
+        refine=None, remainder=In(col1a, [3, 4])),
+    # Partial overlap.
+    dict(
+        query=In(col1a, [1, 2, 3, 4]), source=In(col1a, [3, 4, 5, 6]),
+        refine=In(col1a, [3, 4]), remainder=In(col1a, [1, 2])),
+    # Larger source ranges requiring refinement.
+    dict(
+        query=Range(col1a, lower=0, upper=5, incl_lower=True, incl_upper=True),
+        source=Range(col1a, lower=-2, upper=5, incl_lower=True, incl_upper=True),
+        refine=Range(col1a, lower=0, upper=5, incl_lower=True, incl_upper=True),
+        remainder=None),
+    dict(
+        query=Range(col1a, lower=0, upper=5, incl_lower=True, incl_upper=True),
+        source=Range(col1a, lower=0, upper=7, incl_lower=True, incl_upper=True),
+        refine=Range(col1a, lower=0, upper=5, incl_lower=True, incl_upper=True),
+        remainder=None),
+    # Smaller source ranges requiring remainders.
+    dict(
+        query=Range(col1a, lower=0, upper=5, incl_lower=True, incl_upper=True),
+        source=Range(col1a, lower=2, upper=5, incl_lower=False, incl_upper=True),
+        refine=None,
+        remainder=Range(col1a, lower=0, upper=2, incl_lower=True, incl_upper=True)),
+    dict(
+        query=Range(col1a, lower=0, upper=5, incl_lower=False, incl_upper=True),
+        source=Range(col1a, lower=2, upper=5, incl_lower=True, incl_upper=True),
+        refine=None,
+        remainder=Range(col1a, lower=0, upper=2, incl_lower=False, incl_upper=False)),
+    dict(
+        query=Range(col1a, lower=0, upper=5, incl_lower=False, incl_upper=False),
+        source=Range(col1a, lower=-1, upper=3, incl_lower=False, incl_upper=False),
+        refine=Range(col1a, lower=0, upper=5, incl_lower=False, incl_upper=False),
+        remainder=Range(col1a, lower=3, upper=5, incl_lower=True, incl_upper=False)),
+    dict(
+        query=Range(col1a, lower=0, upper=5, incl_lower=True, incl_upper=False),
+        source=Range(col1a, lower=1, upper=4, incl_lower=False, incl_upper=True),
+        refine=None, remainder=Or([
+            Range(col1a, lower=0, upper=1, incl_lower=True, incl_upper=True),
+            Range(col1a, lower=4, upper=5, incl_lower=False, incl_upper=False)])),
+    # Convenience functions for ranges.
+    dict(
+        query=GreaterThan(col1a, 0), source=LessThan(col1a, 1),
+        refine=GreaterThan(col1a, 0), remainder=GreaterThanOrEqualTo(col1a, 1)),
+    dict(
+        query=LessThan(col1a, 10), source=LessThan(col1a, 0), refine=None,
+        remainder=Range(col1a, lower=0, upper=10, incl_lower=True, incl_upper=False)),
+    # Inverse functions for partial ranges.
+    dict(
+        query=None, source=GreaterThan(col1a, 0),
+        refine=None, remainder=LessThanOrEqualTo(col1a, 0)),
+    dict(
+        query=None, source=GreaterThanOrEqualTo(col1a, 0),
+        refine=None, remainder=LessThan(col1a, 0)),
+    dict(
+        query=None, source=LessThan(col1a, 0),
+        refine=None, remainder=GreaterThanOrEqualTo(col1a, 0)),
+    dict(
+        query=None, source=LessThanOrEqualTo(col1a, 0),
+        refine=None, remainder=GreaterThan(col1a, 0)),
+    dict(
+        query=None, source=Range(col1a, 0, 1, True, True), refine=None,
+        remainder=Or([LessThan(col1a, 0), GreaterThan(col1a, 1)])),
+    # Logical compositions
+    dict(
+        query=And([eq1a, eq1b]), source=And([eq1a, eq1c]),
+        refine=eq1b, remainder=And([eq1a, eq1b, Not(eq1c)])),
+    dict(
+        query=And([eq1a, eq1b]), source=eq1a,
+        refine=eq1b, remainder=None),
+    dict(
+        query=eq1a, source=And([eq1a, eq1b]),
+        refine=None, remainder=And([eq1a, Not(eq1b)])),
+    # Full query objects
+    dict(
+        query=Query(table='table1', select=[col1a, col1b, col1c]),
+        source=Query(table='table1', select=[col1a, col1b, col1c]),
+        refine=None, remainder=None),
+    dict(
+        query=Query(table='table1', select=[col1a, col1b]),
+        source=Query(table='table1', select=[col1a, col1b, col1c]),
+        refine=Query(table='table1', select=[col1a, col1b]),
+        remainder=None),
+    dict(
+        query=Query(table='table1', select=[col1a, col1b], where=In(col1a, [1, 2])),
+        source=Query(table='table1', select=[col1a, col1b, col1c], where=In(col1a, [1])),
+        refine=Query(table='table1', select=[col1a, col1b]),
+        remainder=Query(table='table1', select=[col1a, col1b], where=In(col1a, [2]))),
     ])
-def test_decompose_where(query, source, refine, remainder):
-    assert decompose_where(query, source) == (refine, remainder)
+def test_decompose(testcase):
+    assert decompose(testcase['query'], testcase['source']) == (
+        testcase['refine'], testcase['remainder'])
 
 
-@pytest.mark.parametrize('query, source', [
-    (And(['e1', 'e2']), And(['e1', 'e2', 'e3'])),
-    (Or(['e1', 'e2']), Or(['e1', 'e2', 'e3'])),
-    (In(col1, [1, 2]), In(col2, [3, 4])),
-    (Between(col1, 0, 1), Between(col2, 0, 2)),
+@pytest.mark.parametrize('testcase', [
+    dict(
+        query=Query(table='table1', select=[col1a, col1b, col1c]),
+        source=Query(table='table1', select=[col1a, col1b])),
     ])
-def test_decompose_where_error(query, source):
+def test_decompose_error(testcase):
     with pytest.raises(DecompositionError):
-        decompose_where(query, source)
-
-
-@pytest.mark.parametrize('query, source, refine', [
-    ([col1, col2], [col1, col2], None),
-    ([col1, col2], [col1, col2, col3], [col1, col2]),
-    ])
-def test_decompose_select(query, source, refine):
-    refine = refine if refine is None else frozenset(refine)
-    assert decompose_select(frozenset(query), frozenset(source)) == refine
-
-
-@pytest.mark.parametrize('query, source', [
-    ([col1, col2], [col1]),
-    ])
-def test_decompose_select_error(query, source):
-    with pytest.raises(DecompositionError):
-        decompose_select(frozenset(query), frozenset(source))
+        decompose(testcase['query'], testcase['source'])
 
 
 @pytest.mark.parametrize('query, columns, tables', [
     (Query(table='table1'), set(), {'table1'}),
-    (Query(table='table1', select=[col1]), {col1}, {'table1'}),
-    (Query(table='table1', select=[col1, col2]), {col1, col2}, {'table1'}),
-    (Query(table='table1', select=[col1, col4]), {col1, col4}, {'table1', 'table4'}),
+    (Query(table='table1', select=[col1a]), {col1a}, {'table1'}),
+    (Query(table='table1', select=[col1a, col1b]), {col1a, col1b}, {'table1'}),
+    (Query(table='table1', select=[col1a, col2x]), {col1a, col2x}, {'table1', 'table2'}),
     (
-        Query(table='table1', where=And([In(col1, [1, 2]), Between(col4, 0, 1)])),
-        {col1, col4}, {'table1', 'table4'}),
+        Query(table='table1', where=And([In(col1a, [1, 2]), EqualTo(col2x, 0)])),
+        {col1a, col2x}, {'table1', 'table2'}),
     (
-        Query(table='table1', where=Or([In(col1, [1, 2]), Between(col4, 0, 1)])),
-        {col1, col4}, {'table1', 'table4'}),
+        Query(table='table1', where=Or([In(col1b, [1, 2]), Range(col2y, 0, 1, True, True)])),
+        {col1b, col2y}, {'table1', 'table2'}),
     ])
 def test_columns_tables(query, columns, tables):
     hash((query, query.columns, query.tables))
