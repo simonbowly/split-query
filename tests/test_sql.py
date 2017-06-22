@@ -4,12 +4,13 @@ import datetime
 import pytest
 
 from octo_spork.query import (
-    Column, EqualTo, In, And, Or, Range,
+    Column, EqualTo, In, And, Or, Range, Not, Query,
     GreaterThan, GreaterThanOrEqualTo, LessThan, LessThanOrEqualTo)
-from octo_spork.sql import to_sql, SQLRepresentationError
+from octo_spork.sql import SQLRepresentor, SQLRepresentationError
 
 
 col1 = Column('table1', 'column1')
+col2 = Column('table1', 'column2')
 
 
 @pytest.mark.parametrize('obj, expected', [
@@ -27,28 +28,28 @@ col1 = Column('table1', 'column1')
     (And(['a', 'b', 'c']), "('a') and ('b') and ('c')"),
     (Or(['a', 'b']), "('a') or ('b')"),
     (Or(['a', 'b', 'c']), "('a') or ('b') or ('c')"),
+    (EqualTo(col1, 1), "table1.column1 = 1"),
+    (Not('a'), "not 'a'"),
+    (Not(In(col1, [1, 2])), "not table1.column1 in (1,2)"),
+    (
+        Query(table='table1', select=[col1, col2], where=EqualTo(col1, 0)),
+        "select table1.column1, table1.column2 where table1.column1 = 0")
     # (Between(col1, 1, 2), "table1.column1 between 1 and 2"),
-    # (Not('a'), "not 'a'"),
-    # (Not(In(col1, [1, 2])), "not table1.column1 in (1,2)"),
     ])
 def test_sql_string(obj, expected):
-    assert to_sql(obj) == expected
+    assert SQLRepresentor().repr(obj) == expected
 
 
 @pytest.mark.parametrize('obj, expected', [
-    (Column('table1', 'column1'), "table1.column1 as x"),
-    (Column('table1', 'column2'), "table1.column2"),
-    (Column('table2', 'column1'), "table2.column1 as y"),
+    (EqualTo(col1, 1), "name1 = 1"),
     ])
-def test_sql_alias(obj, expected):
-    alias = {
-        Column('table1', 'column1'): 'x',
-        Column('table2', 'column1'): 'y'}
-    assert to_sql(obj, alias_map=alias) == expected
+def test_column_sources(obj, expected):
+    sql = SQLRepresentor(sources={
+        Column('table1', 'column1'): 'name1',
+        Column('table1', 'column2'): 'name2'})
+    assert sql.repr(obj) == expected
 
 
 def test_sql_errors():
     with pytest.raises(SQLRepresentationError):
-        to_sql(col1, alias_map=1)
-    with pytest.raises(SQLRepresentationError):
-        to_sql(dict())
+        SQLRepresentor().repr(dict())

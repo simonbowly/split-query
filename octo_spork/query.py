@@ -63,9 +63,9 @@ class And(TypingMixin, collections.namedtuple('And', ['expressions'])):
         return frozenset(_columns)
 
     def simplify(self):
-        return (
-            next(iter(self.expressions))
-            if len(self.expressions) == 1 else self)
+        if len(self.expressions) == 1:
+            return next(iter(self.expressions))
+        return self
 
 
 class Or(TypingMixin, collections.namedtuple('Or', ['expressions'])):
@@ -141,7 +141,7 @@ def decompose(query, source):
         if source_missing:
             raise DecompositionError()
         source_extra = source.select - query.select
-        if source_extra:
+        if source_extra or (refine_where is not None):
             refine = Query(table=query.table, select=query.select, where=refine_where)
         if remainder_where is not None:
             remainder = Query(table=query.table, select=query.select, where=remainder_where)
@@ -173,8 +173,26 @@ def decompose(query, source):
             refine = And(source_missing).simplify()
         # Extra expressions in source contribute partials.
         source_extra = source.expressions - query.expressions
+
         if source_extra:
-            remainder = And(query.expressions.union({Not(And(source_extra).simplify())}))
+
+            def _required(rhs):
+                ''' Attempt at removing remainders resulting from contradiction. '''
+                # TODO needs generalisation.
+                for lhs in query.expressions:
+                    try:
+                        if type(lhs) is type(rhs):
+                            _, _rem = decompose(lhs, rhs)
+                            if _rem is None:
+                                return False
+                    except DecompositionError:
+                        pass
+                return True     # Could not be eliminated.
+
+            source_extra = {expr for expr in source_extra if _required(expr)}
+            if len(source_extra) > 0:
+                remainder = And(query.expressions.union({Not(And(source_extra).simplify())})).simplify()
+
         return refine, remainder
 
     # Matchable single statements.

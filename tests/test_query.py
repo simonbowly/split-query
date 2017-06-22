@@ -134,6 +134,11 @@ eq1c = EqualTo(col1c, 1)
         source=Query(table='table1', select=[col1a, col1b, col1c], where=In(col1a, [1])),
         refine=Query(table='table1', select=[col1a, col1b]),
         remainder=Query(table='table1', select=[col1a, col1b], where=In(col1a, [2]))),
+    dict(
+        query=Query(table='table1', select=[col1a, col1b, col1c], where=In(col1a, [1, 2])),
+        source=Query(table='table1', select=[col1a, col1b, col1c], where=In(col1a, [1, 2, 3])),
+        refine=Query(table='table1', select=[col1a, col1b, col1c], where=In(col1a, [1, 2])),
+        remainder=None),
     ])
 def test_decompose(testcase):
     assert decompose(testcase['query'], testcase['source']) == (
