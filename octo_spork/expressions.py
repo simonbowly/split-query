@@ -1,6 +1,7 @@
 
 import collections
 import functools
+import itertools
 
 import sympy as sp
 
@@ -46,28 +47,29 @@ class In(TypingMixin, collections.namedtuple('In', ['column', 'valueset'])):
 
 
 def _to_interval(expression):
-    if type(expression) is Le:
+    if isinstance(expression, Le):
         return sp.Interval(-sp.S.Infinity, expression.value)
-    if type(expression) is Lt:
+    if isinstance(expression, Lt):
         return sp.Interval.open(-sp.S.Infinity, expression.value)
-    if type(expression) is Ge:
+    if isinstance(expression, Ge):
         return sp.Interval(expression.value, sp.S.Infinity)
-    if type(expression) is Gt:
+    if isinstance(expression, Gt):
         return sp.Interval.open(expression.value, sp.S.Infinity)
-    if type(expression) is Not:
+    if isinstance(expression, Not):
         return _to_interval(expression.expression).complement(sp.S.Reals)
-    if type(expression) is And:
+    if isinstance(expression, And):
         return functools.reduce(
             lambda x, y: x.intersection(y),
             (_to_interval(expr) for expr in expression.expressions))
-    if type(expression) is Or:
+    if isinstance(expression, Or):
         return functools.reduce(
             lambda x, y: x.union(y),
             (_to_interval(expr) for expr in expression.expressions))
+    raise ValueError('Unhandled expression in _to_interval')
 
 
 def _from_interval(column, interval):
-    if type(interval) is sp.Union:
+    if isinstance(interval, sp.Union):
         return Or(_from_interval(column, arg) for arg in interval.args)
     if interval.left == -sp.S.Infinity:
         if interval.right_open:
@@ -104,18 +106,19 @@ def _reduce_set_or(expr1, expr2):
 
 
 def _to_set(expression):
-    if type(expression) is In:
+    if isinstance(expression, In):
         return (expression.valueset, '+')
-    if type(expression) is And:
+    if isinstance(expression, And):
         return functools.reduce(
             _reduce_set_and,
             (_to_set(expr) for expr in expression.expressions))
-    if type(expression) is Or:
+    if isinstance(expression, Or):
         return functools.reduce(
             _reduce_set_or,
             (_to_set(expr) for expr in expression.expressions))
-    if type(expression) is Not:
+    if isinstance(expression, Not):
         return (expression.expression.valueset, '-')
+    raise ValueError('Unhandled expression in _to_set')
 
 
 def _from_set(column, _set):
@@ -124,3 +127,55 @@ def _from_set(column, _set):
         return In(column, values)
     else:
         return Not(In(column, values))
+
+
+def get_categories(expression):
+    if any(isinstance(expression, t) for t in [Gt, Ge, Lt, Le]):
+        return frozenset({(expression.column, 'interval')})
+    if isinstance(expression, In):
+        return frozenset({(expression.column, 'set')})
+    if isinstance(expression, Not):
+        return get_categories(expression.expression)
+    if isinstance(expression, And) or isinstance(expression, Or):
+        return frozenset(functools.reduce(
+            lambda c1, c2: c1.union(c2),
+            (get_categories(expr) for expr in expression.expressions)))
+    raise ValueError('Unknown expression type.')
+
+
+def get_columns(expression):
+    return frozenset(column for column, _ in get_categories(expression))
+
+
+def get_kinds(expression):
+    return frozenset(kind for _, kind in get_categories(expression))
+
+
+def flatten(expression):
+    if isinstance(expression, And) or isinstance(expression, Or):
+        if len(expression.expressions) == 1:
+            return next(iter(expression.expressions))
+        cls = expression.__class__
+        exprs = map(flatten, expression.expressions)
+        return cls(itertools.chain(*(
+            e.expressions if isinstance(e, cls) else [e] for e in exprs)))
+    return expression
+
+
+def simplify(expression):
+    expression = flatten(expression)
+    categories = get_categories(expression)
+    if len(categories) == 1:
+        column, kind = next(iter(categories))
+        if kind == 'set':
+            return _from_set(column, _to_set(expression))
+        if kind == 'interval':
+            return _from_interval(column, _to_interval(expression))
+    if isinstance(expression, And) or isinstance(expression, Or):
+        cls = expression.__class__
+        # Try to collect expressions under matching categorisations.
+        category_map = collections.defaultdict(list)
+        for expr in expression.expressions:
+            category_map[get_categories(expr)].append(expr)
+        return flatten(cls(simplify(cls(expr_list)) for _, expr_list in category_map.items()))
+    raise ValueError('Expressions is multi-category but not And/Or.')
