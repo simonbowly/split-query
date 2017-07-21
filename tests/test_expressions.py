@@ -164,6 +164,7 @@ def test_flatten(expression, result):
         Or([
             And([Le('col2', 3), Ge('col1', 2)]),
             Lt('col2', 0)])),
+    # (Not(And([In('e1', [1]), In('e2', [2])])), None),
     ])
 def test_simplify(expression, result):
     assert simplify(expression) == result

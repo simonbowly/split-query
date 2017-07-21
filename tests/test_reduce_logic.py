@@ -3,7 +3,7 @@ import pytest
 import sympy as sp
 
 from octo_spork.expressions import And, Or, Not
-from octo_spork.reduce_logic import SympyExpressionMapper
+from octo_spork.reduce_logic import SympyExpressionMapper, flatten
 
 
 @pytest.mark.parametrize('expression, result', [
@@ -40,3 +40,21 @@ def test_recover_simplified(expression):
     mapped1 = mapper.to_sympy(expression)
     mapped2 = mapper.to_sympy(mapper.from_sympy(mapped1))
     assert mapped1 == mapped2
+
+
+@pytest.mark.parametrize('expression, method, result', [
+    (
+        And([And(['e1', 'e2']), Not(And(['e1', 'e3']))]), 'dnf',
+        And(['e2', 'e1', Not('e3')])),
+    (
+        And([And(['e1', 'e2']), Not(And(['e1', 'e3']))]), 'cnf',
+        And(['e2', 'e1', Not('e3')])),
+    (
+        And([And(['a', 'b']), Not(And(['c', 'd']))]), 'dnf',
+        Or([And([Not('d'), 'b', 'a']), And([Not('c'), 'b', 'a'])])),
+    (
+        And([And(['a', 'b']), Not(And(['c', 'd']))]), 'cnf',
+        And([Or([Not('d'), Not('c')]), 'b', 'a'])),
+    ])
+def test_flatten(expression, method, result):
+    assert flatten(expression, method) == result

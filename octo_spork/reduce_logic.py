@@ -40,3 +40,16 @@ class SympyExpressionMapper(object):
         if isinstance(mapped, sp.Not):
             return Not(self.from_sympy(mapped.args[0]))
         return self.get_expression(mapped)
+
+
+def flatten(expr, method):
+    ''' Flatten expressions using CNF/DNF clause conversions. '''
+    mapper = SympyExpressionMapper()
+    expr_sp = mapper.to_sympy(expr)
+    if method == 'cnf':
+        expr_sp = sp.to_cnf(expr_sp, simplify=True)
+    elif method == 'dnf':
+        expr_sp = sp.to_dnf(expr_sp, simplify=True)
+    else:
+        raise ValueError()
+    return mapper.from_sympy(expr_sp)
