@@ -1,7 +1,7 @@
 
 import sympy as sp
 
-from octo_spork.expressions import And, Or, Not
+from .functions import And, Or, Not
 
 
 class SympyExpressionMapper(object):
@@ -42,14 +42,15 @@ class SympyExpressionMapper(object):
         return self.get_expression(mapped)
 
 
-def flatten(expr, method):
-    ''' Flatten expressions using CNF/DNF clause conversions. '''
+def to_dnf(expr):
     mapper = SympyExpressionMapper()
     expr_sp = mapper.to_sympy(expr)
-    if method == 'cnf':
-        expr_sp = sp.to_cnf(expr_sp, simplify=True)
-    elif method == 'dnf':
-        expr_sp = sp.to_dnf(expr_sp, simplify=True)
-    else:
-        raise ValueError()
+    expr_sp = sp.to_dnf(expr_sp, simplify=True)
+    return mapper.from_sympy(expr_sp)
+
+
+def to_cnf(expr):
+    mapper = SympyExpressionMapper()
+    expr_sp = mapper.to_sympy(expr)
+    expr_sp = sp.to_cnf(expr_sp, simplify=True)
     return mapper.from_sympy(expr_sp)

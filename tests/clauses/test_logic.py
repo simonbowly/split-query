@@ -2,8 +2,8 @@
 import pytest
 import sympy as sp
 
-from octo_spork.expressions import And, Or, Not
-from octo_spork.reduce_logic import SympyExpressionMapper, flatten
+from octo_spork.clauses.functions import And, Or, Not
+from octo_spork.clauses.logic import SympyExpressionMapper, to_dnf, to_cnf
 
 
 @pytest.mark.parametrize('expression, result', [
@@ -42,19 +42,25 @@ def test_recover_simplified(expression):
     assert mapped1 == mapped2
 
 
-@pytest.mark.parametrize('expression, method, result', [
+@pytest.mark.parametrize('expression, result', [
     (
-        And([And(['e1', 'e2']), Not(And(['e1', 'e3']))]), 'dnf',
+        And([And(['e1', 'e2']), Not(And(['e1', 'e3']))]),
         And(['e2', 'e1', Not('e3')])),
     (
-        And([And(['e1', 'e2']), Not(And(['e1', 'e3']))]), 'cnf',
-        And(['e2', 'e1', Not('e3')])),
-    (
-        And([And(['a', 'b']), Not(And(['c', 'd']))]), 'dnf',
+        And([And(['a', 'b']), Not(And(['c', 'd']))]),
         Or([And([Not('d'), 'b', 'a']), And([Not('c'), 'b', 'a'])])),
+    ])
+def test_to_dnf(expression, result):
+    assert to_dnf(expression) == result
+
+
+@pytest.mark.parametrize('expression, result', [
     (
-        And([And(['a', 'b']), Not(And(['c', 'd']))]), 'cnf',
+        And([And(['e1', 'e2']), Not(And(['e1', 'e3']))]),
+        And(['e2', 'e1', Not('e3')])),
+    (
+        And([And(['a', 'b']), Not(And(['c', 'd']))]),
         And([Or([Not('d'), Not('c')]), 'b', 'a'])),
     ])
-def test_flatten(expression, method, result):
-    assert flatten(expression, method) == result
+def test_to_cnf(expression, result):
+    assert to_cnf(expression) == result

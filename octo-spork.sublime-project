@@ -2,8 +2,15 @@
 	"folders":
 	[
 		{
+			"file_exclude_patterns":
+			[
+			],
+			"folder_exclude_patterns":
+			[
+				"__pycache__"
+			],
 			"path": "."
 		}
 	],
-	"virtualenv": "/home/simon/.virtualenvs/octo-spork"
+	"virtualenv": "~/.virtualenvs/octo-spork"
 }

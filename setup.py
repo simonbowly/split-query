@@ -13,6 +13,6 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3'],
-    packages=find_packages(where='.', exclude=['tests', 'scratch', 'examples']),
+    packages=find_packages(where='.', include=['octo_spork']),
     install_requires=[],
     extras_require={})
