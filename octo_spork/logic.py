@@ -1,10 +1,17 @@
 
 import sympy as sp
 
-from .functions import And, Or, Not
+from .expressions import And, Or, Not
 
 
 class SympyExpressionMapper(object):
+    ''' Handles converting an expression to a sympy logic compatible form.
+    AND/OR/NOT clauses are converted to their sympy equivalents, all other
+    objects are converted to symbols. A map is retained to the conversion can
+    be reversed after simplification of the logical clauses.
+    Intended for single use (as in the to_dnf/to_cnf functions) to capture the
+    non-logic elements of an expression and reinsert them after simplifying the
+    AND/OR/NOT clause combinations. '''
 
     def __init__(self):
         self._mapped_values = dict()
@@ -24,12 +31,12 @@ class SympyExpressionMapper(object):
     def to_sympy(self, expression):
         if isinstance(expression, And):
             return sp.And(*(
-                self.to_sympy(expr) for expr in expression.expressions))
+                self.to_sympy(expr) for expr in expression.clauses))
         if isinstance(expression, Or):
             return sp.Or(*(
-                self.to_sympy(expr) for expr in expression.expressions))
+                self.to_sympy(expr) for expr in expression.clauses))
         if isinstance(expression, Not):
-            return sp.Not(self.to_sympy(expression.expression))
+            return sp.Not(self.to_sympy(expression.clause))
         return self.get_mapped(expression)
 
     def from_sympy(self, mapped):
@@ -43,6 +50,9 @@ class SympyExpressionMapper(object):
 
 
 def to_dnf(expr):
+    ''' Simplify an expression to disjunctive normal form by mapping to sympy
+    logical expressions, finding the reduced form and mapping back to the
+    original expression space. '''
     mapper = SympyExpressionMapper()
     expr_sp = mapper.to_sympy(expr)
     expr_sp = sp.to_dnf(expr_sp, simplify=True)
@@ -50,6 +60,9 @@ def to_dnf(expr):
 
 
 def to_cnf(expr):
+    ''' Simplify an expression to clause normal form by mapping to sympy
+    logical expressions, finding the reduced form and mapping back to the
+    original expression space. '''
     mapper = SympyExpressionMapper()
     expr_sp = mapper.to_sympy(expr)
     expr_sp = sp.to_cnf(expr_sp, simplify=True)

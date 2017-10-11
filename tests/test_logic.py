@@ -1,9 +1,11 @@
 
+from hypothesis import given, example
 import pytest
 import sympy as sp
 
-from octo_spork.clauses.functions import And, Or, Not
-from octo_spork.clauses.logic import SympyExpressionMapper, to_dnf, to_cnf
+from .testing import st_expressions
+from octo_spork.expressions import And, Or, Not
+from octo_spork.logic import SympyExpressionMapper, to_dnf, to_cnf
 
 
 @pytest.mark.parametrize('expression, result', [
@@ -12,6 +14,8 @@ from octo_spork.clauses.logic import SympyExpressionMapper, to_dnf, to_cnf
     (Not('a'), sp.Not(sp.symbols('x1'))),
     ])
 def test_to_sympy(expression, result):
+    ''' Test that the mapper inserts symbols where appropriate recovers the
+    original expression. '''
     mapper = SympyExpressionMapper()
     mapped = mapper.to_sympy(expression)
     assert mapped == result
@@ -25,17 +29,23 @@ def test_to_sympy(expression, result):
     And([Or(['a', 'b']), Not('c')]),
     ])
 def test_recover_mapped(expression):
+    ''' Test that map/recover returns the original expression. Automatic
+    simplification means that this is not always the case for certain
+    expressions. '''
     mapper = SympyExpressionMapper()
     mapped = mapper.to_sympy(expression)
     assert mapper.from_sympy(mapped) == expression
 
 
-@pytest.mark.parametrize('expression', [
-    And(['a', And(['b', 'c'])]),
-    Or([Or(['c', 'b']), 'a']),
-    And([Or(['a', 'b']), Not('c')]),
-    ])
+# @pytest.mark.parametrize('expression', [
+#     And(['a', And(['b', 'c'])]),
+#     Or([Or(['c', 'b']), 'a']),
+#     And([Or(['a', 'b']), Not('c')]),
+#     ])
+@given(st_expressions())
 def test_recover_simplified(expression):
+    ''' Test that sympy representation is consistent when some
+    simplification has already occurred. '''
     mapper = SympyExpressionMapper()
     mapped1 = mapper.to_sympy(expression)
     mapped2 = mapper.to_sympy(mapper.from_sympy(mapped1))
@@ -51,6 +61,7 @@ def test_recover_simplified(expression):
         Or([And([Not('d'), 'b', 'a']), And([Not('c'), 'b', 'a'])])),
     ])
 def test_to_dnf(expression, result):
+    ''' Test expected dnf simplifications. '''
     assert to_dnf(expression) == result
 
 
@@ -63,4 +74,13 @@ def test_to_dnf(expression, result):
         And([Or([Not('d'), Not('c')]), 'b', 'a'])),
     ])
 def test_to_cnf(expression, result):
+    ''' Test expected cnf simplifications. '''
     assert to_cnf(expression) == result
+
+
+@given(st_expressions(max_leaves=5))
+def test_forms(expression):
+    ''' Fuzzing error test of the simplification routines.
+    TODO test they are the same using an engine implementation? '''
+    to_cnf(expression)
+    to_dnf(expression)
