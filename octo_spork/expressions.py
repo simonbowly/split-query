@@ -19,6 +19,9 @@ class ExpressionBase(frozendict.frozendict):
         raise AttributeError("'{}' object has no attribute '{}'".format(
             self.__class__.__name__, attr))
 
+    def __repr__(self):
+        return nice_repr(self)
+
 
 class Attribute(ExpressionBase):
     ''' A named attribute of the objects being filtered. '''
@@ -108,6 +111,9 @@ def nice_repr(obj):
         return '({} {} {})'.format(
             nice_repr(obj.attribute), symbol_map[obj['expr']],
             nice_repr(obj.value))
+    if isinstance(obj, In):
+        return '({} in {})'.format(
+            nice_repr(obj.attribute), list(obj.valueset))
     if isinstance(obj, Attribute):
         return nice_repr(obj.name)
     return str(obj)

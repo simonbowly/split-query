@@ -31,7 +31,11 @@ def to_interval(expression):
 def from_interval(column, interval):
     if isinstance(interval, sp.Union):
         return Or(from_interval(column, arg) for arg in interval.args)
+    if isinstance(interval, sp.EmptySet):
+        return False
     if interval.left == -sp.S.Infinity:
+        if interval.right == sp.S.Infinity:
+            return True
         if interval.right_open:
             return Lt(column, interval.right)
         else:
@@ -105,7 +109,6 @@ def get_attributes(expr):
 def simplify_sets(expression):
     ''' Simplify a set expression on a single attribute. '''
     attributes = get_attributes(expression)
-    print(attributes)
     if len(attributes) != 1:
         raise ValueError()
     attribute = next(iter(attributes))

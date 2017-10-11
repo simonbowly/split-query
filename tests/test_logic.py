@@ -4,7 +4,7 @@ import pytest
 import sympy as sp
 
 from .testing import st_expressions
-from octo_spork.expressions import And, Or, Not
+from octo_spork.expressions import And, Or, Not, Lt, Gt, Attribute
 from octo_spork.logic import SympyExpressionMapper, to_dnf, to_cnf
 
 
@@ -12,6 +12,8 @@ from octo_spork.logic import SympyExpressionMapper, to_dnf, to_cnf
     (And(['a', 'b']), sp.And(sp.symbols('x1'), sp.symbols('x2'))),
     (Or(['a', 'b']), sp.Or(sp.symbols('x1'), sp.symbols('x2'))),
     (Not('a'), sp.Not(sp.symbols('x1'))),
+    (True, True),
+    (False, False),
     ])
 def test_to_sympy(expression, result):
     ''' Test that the mapper inserts symbols where appropriate recovers the
@@ -35,6 +37,21 @@ def test_recover_mapped(expression):
     mapper = SympyExpressionMapper()
     mapped = mapper.to_sympy(expression)
     assert mapper.from_sympy(mapped) == expression
+
+
+x1 = Attribute('x1')
+
+
+@pytest.mark.parametrize('expression, result', [
+    (Or([True, Lt(x1, 0)]), True),
+    (And([False, Lt(x1, 0)]), False),
+    (Or([False, Lt(x1, 0)]), Lt(x1, 0)),
+    (And([True, Lt(x1, 0)]), Lt(x1, 0)),
+    (Or([False, And([Gt(x1, 0), Lt(x1, 1)])]), And([Gt(x1, 0), Lt(x1, 1)])),
+    # (And([True, Lt(x1, 0)]), Lt(x1, 0)),
+    ])
+def test_literals(expression, result):
+    assert to_cnf(expression) == result
 
 
 # @pytest.mark.parametrize('expression', [

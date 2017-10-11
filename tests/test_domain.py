@@ -46,6 +46,9 @@ col = Attribute('x1')
         Or([
             And([Ge(col, 2), Lt(col, 3)]),
             And([Gt(col, 4), Le(col, 5)])])),
+    # Resulting in boolean literals.
+    (And([Lt(col, 1), Gt(col, 2)]), False),
+    (Or([Le(col, 0), Ge(col, 0)]), True),
 ])
 def test_simplify_intervals(expression, result):
     assert simplify_intervals(expression) == result

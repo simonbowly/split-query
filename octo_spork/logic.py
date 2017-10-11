@@ -1,5 +1,6 @@
 
 import sympy as sp
+from sympy.logic.boolalg import BooleanTrue, BooleanFalse
 
 from .expressions import And, Or, Not
 
@@ -29,6 +30,8 @@ class SympyExpressionMapper(object):
         return self._mapped_values[mapped]
 
     def to_sympy(self, expression):
+        if any(isinstance(expression, t) for t in (bool, BooleanTrue, BooleanFalse)):
+            return expression
         if isinstance(expression, And):
             return sp.And(*(
                 self.to_sympy(expr) for expr in expression.clauses))
@@ -40,6 +43,8 @@ class SympyExpressionMapper(object):
         return self.get_mapped(expression)
 
     def from_sympy(self, mapped):
+        if any(isinstance(mapped, t) for t in [bool, BooleanTrue, BooleanFalse]):
+            return bool(mapped)
         if isinstance(mapped, sp.And):
             return And(self.from_sympy(expr) for expr in mapped.args)
         if isinstance(mapped, sp.Or):
