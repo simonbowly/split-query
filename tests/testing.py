@@ -15,7 +15,7 @@ def st_expressions(names=printable, max_leaves=100):
     # Left to right relation generator. Chooses an attribute, comparison
     # operator and value to construct the relation.
     pos_relations = st.tuples(
-        st.one_of(st.just(r) for r in [Eq, Le, Lt, Ge, Gt]), attribute,
+        st.one_of(st.just(r) for r in [Le, Lt, Ge, Gt]), attribute,
         st.integers(min_value=-10, max_value=10)).map(
             lambda r: r[0](r[1], r[2]))
 
