@@ -44,3 +44,9 @@ def test_simplify(expression, result):
 @given(st_expressions())
 def test_simplify_fuzz(expression):
     simplify(expression)
+
+
+def test_recursion():
+    simplify(And([
+        And([Ge(x1, 1), Le(x1, 5), Ge(x2, 0), Le(x2, 4)]),
+        Not(And([Ge(x1, 1), Le(x1, 3), Ge(x2, 0), Le(x2, 2)]))]))
