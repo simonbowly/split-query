@@ -49,6 +49,11 @@ col = Attribute('x1')
     # Resulting in boolean literals.
     (And([Lt(col, 1), Gt(col, 2)]), False),
     (Or([Le(col, 0), Ge(col, 0)]), True),
+    # Edge cases (make these Eq in future)
+    (And([Le(col, 0), Ge(col, 0)]), And([Le(col, 0), Ge(col, 0)])),
+    (
+        Or([And([Le(col, 0), Ge(col, 0)]), And([Le(col, 1), Ge(col, 1)])]),
+        Or([And([Le(col, 0), Ge(col, 0)]), And([Le(col, 1), Ge(col, 1)])])),
 ])
 def test_simplify_intervals(expression, result):
     assert simplify_intervals(expression) == result
@@ -101,6 +106,8 @@ def test_simplify_sets_error(expression):
     (
         Or([In(Attribute('col1'), [3]), In(Attribute('col2'), [4])]),
         {Attribute('col1'), Attribute('col2')}),
+    (True, set()),
+    (False, set()),
     ])
 def test_get_attributes(expression, columns):
     assert get_attributes(expression) == columns

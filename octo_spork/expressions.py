@@ -19,8 +19,8 @@ class ExpressionBase(frozendict.frozendict):
         raise AttributeError("'{}' object has no attribute '{}'".format(
             self.__class__.__name__, attr))
 
-    def __repr__(self):
-        return nice_repr(self)
+    # def __repr__(self):
+    #     return nice_repr(self)
 
 
 class Attribute(ExpressionBase):

@@ -11,8 +11,32 @@ def simplify(expression):
     and flatten out any simple trees. Note that this aims to reduce single
     variable cases. Pure logical simplification should be done using cnf/dnf
     reduction functions. '''
-
+    if isinstance(expression, And):
+        # Handle any simple literal cases (all True, any False)
+        # and remove redundancy e.g. And(True, c1, c2) = And(c1, c2)
+        if all(clause is True for clause in expression.clauses):
+            return True
+        if any(clause is False for clause in expression.clauses):
+            return False
+        if any(clause is True for clause in expression.clauses):
+            return simplify(And([
+                clause for clause in expression.clauses
+                if clause is not True]))
+    if isinstance(expression, Or):
+        # Handle any simple literal cases (all False, any True)
+        # and remove redundancy e.g. Or(False, c1, c2) = Or(c1, c2)
+        if all(clause is False for clause in expression.clauses):
+            return False
+        if any(clause is True for clause in expression.clauses):
+            return True
+        if any(clause is False for clause in expression.clauses):
+            return simplify(Or([
+                clause for clause in expression.clauses
+                if clause is not False]))
     if isinstance(expression, And) or isinstance(expression, Or):
+        if len(expression.clauses) == 1:
+            # Remove trivial nests.
+            return simplify(next(iter(expression.clauses)))
         if len(get_attributes(expression)) == 1:
             # Down to an expression of one variable, so domain simplification can
             # be applied.
@@ -41,6 +65,11 @@ def simplify(expression):
     if isinstance(expression, Not):
         if len(get_attributes(expression)) == 1:
             return simplify_intervals(expression)
-        return Not(simplify(expression.clause))
+        _clause = simplify(expression.clause)
+        if _clause is True:
+            return False
+        if _clause is False:
+            return True
+        return Not(_clause)
     # Expression leaf node: no compound statements.
     return expression

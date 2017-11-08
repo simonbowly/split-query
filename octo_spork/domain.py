@@ -33,6 +33,10 @@ def from_interval(column, interval):
         return Or(from_interval(column, arg) for arg in interval.args)
     if isinstance(interval, sp.EmptySet):
         return False
+    if isinstance(interval, sp.FiniteSet):
+        expressions = [
+            And([Ge(column, value), Le(column, value)]) for value in interval]
+        return expressions[0] if len(interval) == 1 else Or(expressions)
     if interval.left == -sp.S.Infinity:
         if interval.right == sp.S.Infinity:
             return True
@@ -93,6 +97,8 @@ def from_set(column, _set):
 
 
 def get_attributes(expr):
+    if isinstance(expr, bool):
+        return set()
     if isinstance(expr, Attribute):
         return {expr}
     if any(isinstance(expr, t) for t in [And, Or]):
