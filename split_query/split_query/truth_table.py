@@ -51,9 +51,14 @@ def truth_table(expression):
 
 def expand_dnf(expression):
     ''' Expand to disjunctive normal form using truth table. '''
-    return Or((
+    _truth_table = truth_table(expression)
+    if all(result is True for _, result in _truth_table):
+        return True
+    if all(result is False for _, result in _truth_table):
+        return False
+    return Or(
         And((
             clause if truth else Not(clause)
             for clause, truth in assignment.items()))
-        for assignment, result in truth_table(expression)
-        if result is True))
+        for assignment, result in _truth_table
+        if result is True)

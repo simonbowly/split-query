@@ -53,6 +53,14 @@ TESTCASES_TRUTH_TABLE = [
         (dict(a=True, b=False), True),
         (dict(a=False, b=True), True),
         (dict(a=False, b=False), False),]),
+    (
+        And(['a', Not('a')]), [
+        (dict(a=True), False),
+        (dict(a=False), False),]),
+    (
+        Or(['a', Not('a')]), [
+        (dict(a=True), True),
+        (dict(a=False), True),]),
 ]
 
 
@@ -71,6 +79,10 @@ TESTCASES_EXPAND_DNF = [
     (And(['a', 'b']), Or([And(['a', 'b'])])),
     (Or(['a', 'b']), Or([
         And(['a', 'b']), And([Not('a'), 'b']), And(['a', Not('b')])])),
+    (And(['a', Not('a')]),                          False),
+    (And([And(['a', 'b']), Not(And(['a', 'b']))]),  False),
+    (Or(['a', Not('a')]),                           True),
+    (Or([And(['a', 'b']), Not(And(['a', 'b']))]),   True),
 ]
 
 
@@ -79,15 +91,11 @@ def test_expand_dnf(expression, result):
     assert expand_dnf(expression) == result
 
 
-@given(expressions(st.one_of(st.just(n) for n in 'xyz'), max_leaves=100))
-def test_expand_dnf_fuzz(expressions):
-    ''' Large expressions with up to 3 distinct clauses. '''
-    expand_dnf(expressions)
-
-
-@given(float_expressions('xyz', literals=True, max_leaves=100))
-def test_expand_dnf_fuzz_2(expression):
-    ''' Full expressions: but need to limit the number of distinct clauses
-    to get a lot of tests done quickly. '''
+@given(
+    expressions(st.one_of(st.just(n) for n in 'xyz'), max_leaves=100) |
+    float_expressions('xyz', literals=True, max_leaves=100))
+def test_expand_dnf_fuzz(expression):
+    ''' Test truth table expansions on expressions with a limited number
+    of clauses. '''
     assume(len(get_clauses(expression)) < 6)
-    expand_dnf(expression)
+    result = expand_dnf(expression)

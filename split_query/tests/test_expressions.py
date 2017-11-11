@@ -1,4 +1,6 @@
 
+import itertools
+
 from hypothesis import given
 import hypothesis.strategies as st
 import pytest
@@ -32,3 +34,28 @@ def test_hash_repr_able(expression):
     do not cause errors with hash or repr. '''
     assert isinstance(hash(expression), int)
     assert isinstance(repr(expression), str)
+
+
+def expressions_not_equal():
+    ''' Generates distinct expressions for != testing. '''
+    yield Float('x')
+    for relation, attr, value in itertools.product(
+            [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
+        yield relation(attr, value)
+    yield And(['a', 'b'])
+    yield And(['a', 'c'])
+    yield Or(['a', 'b'])
+    yield Or(['a', 'c'])
+    yield Not('a')
+    yield Not('b')
+
+
+def test_not_equal():
+    ''' Compare all combinations in the set for equality clashes. The
+    implementation of expressions uses frozendicts to store data should
+    guarantee this, so it is partly a stupidity check and partly a regresion
+    test in case of implementation change. '''
+    for a, b in itertools.combinations(expressions_not_equal(), 2):
+        assert a != b
+        assert not a == b
+        assert not hash(a) == hash(b)
