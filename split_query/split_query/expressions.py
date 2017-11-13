@@ -106,3 +106,25 @@ class Not(Expression):
 
     def __repr__(self):
         return 'Not({})'.format(repr(self.clause))
+
+
+symbol_map = {
+    'and': ' & ', 'or': ' | ', 'eq': '==',
+    'le': '<=', 'lt': '<', 'ge': '>=', 'gt': '>',
+}
+
+
+def math_repr(obj):
+    if isinstance(obj, And) or isinstance(obj, Or):
+        joiner = symbol_map[obj['expr']]
+        return joiner.join(sorted(
+            '({})'.format(math_repr(clause)) for clause in obj.clauses))
+    if isinstance(obj, Not):
+        return '~({})'.format(math_repr(obj.clause))
+    if any(isinstance(obj, t) for t in (Eq, Le, Lt, Ge, Gt)):
+        return '{} {} {}'.format(
+            math_repr(obj.attribute), symbol_map[obj['expr']],
+            math_repr(obj.value))
+    if isinstance(obj, Float):
+        return math_repr(obj.name)
+    return str(obj)

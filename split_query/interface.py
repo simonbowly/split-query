@@ -1,44 +1,12 @@
 
+import numpy as np
 import pandas as pd
 
-from split_query.expressions import Float, And, Or, Not, Eq, Le, Lt, Ge, Gt
+from split_query.expressions import Float, And, Or, Not, Eq, Le, Lt, Ge, Gt, math_repr
 from split_query.simplify import simplify_tree
-from split_query.domain import simplify_domain
-from split_query.truth_table import expand_dnf
 
 
 ATTR_ERROR = "'{}' object has no attribute '{}'"
-
-
-symbol_map = {
-    'and': ' & ', 'or': ' | ', 'eq': '==',
-    'le': '<=', 'lt': '<', 'ge': '>=', 'gt': '>',
-}
-
-
-def simplify(expression):
-    return simplify_tree(
-        simplify_domain(
-            expand_dnf(
-                simplify_domain(
-                    simplify_tree(
-                        expression)))))
-
-
-def nice_repr(obj):
-    if isinstance(obj, And) or isinstance(obj, Or):
-        joiner = symbol_map[obj['expr']]
-        return '({})'.format(joiner.join(
-            nice_repr(clause) for clause in obj.clauses))
-    if isinstance(obj, Not):
-        return '~{}'.format(nice_repr(obj.clause))
-    if any(isinstance(obj, t) for t in (Eq, Le, Lt, Ge, Gt)):
-        return '({} {} {})'.format(
-            nice_repr(obj.attribute), symbol_map[obj['expr']],
-            nice_repr(obj.value))
-    if isinstance(obj, Float):
-        return nice_repr(obj.name)
-    return str(obj)
 
 
 class ExpressionContainer(object):
@@ -46,9 +14,6 @@ class ExpressionContainer(object):
 
     def __init__(self, expr):
         self._wrapped = expr
-
-    def __repr__(self):
-        return 'EXPR[ {} ]'.format(repr(self._wrapped))
 
     def __and__(self, other):
         assert isinstance(other, ExpressionContainer)
@@ -70,9 +35,6 @@ class AttributeContainer(object):
 
     def __init__(self, attr):
         self._wrapped = attr
-
-    def __repr__(self):
-        return 'EXPR[ {} ]'.format(repr(self._wrapped))
 
     def __eq__(self, value):
         return ExpressionContainer(Eq(self._wrapped, value))
@@ -102,12 +64,6 @@ class DataSet(object):
         self.backend = backend
         self.expr = expr
 
-    def __repr__(self):
-        expr = simplify(self.expr)
-        count = self.backend.estimate_count(expr)
-        return '{}\nFilter:  {}\nRecords: {}'.format(
-            self.name, nice_repr(expr), '?' if count is None else count)
-
     def __getattr__(self, attr):
         if attr in self.attributes:
             return AttributeContainer(self.attributes[attr])
@@ -119,86 +75,37 @@ class DataSet(object):
             attributes=self.attributes.values(),
             expr=simplify_tree(And([self.expr, expr._wrapped])))
 
+    def mock_data(self):
+        ''' Based on the types of attributes, return mock data. '''
+        return pd.DataFrame([
+            {
+                name: i + j for i, name
+                in enumerate(self.attributes)}
+            for j in range(3)])
+
+    def __repr__(self):
+        expr = self.expr
+        record_count = self.backend.estimate_count(self.expr)
+        header = (
+            '{}\n'.format(self.name) +
+            'Filter: {}\n'.format(math_repr(self.expr)) +
+            'Records: {}\n'.format(record_count) +
+            'Mock data:\n')
+        data = self.mock_data()
+        return header + repr(data)
+
+    def _repr_html_(self):
+        expr = self.expr
+        record_count = self.backend.estimate_count(self.expr)
+        header = (
+            '<div><H3>{}</H3></div>'.format(self.name) +
+            '<br style="line-height: 0px" />' +
+            '<div><b>Filter:</b> {}</div>'.format(math_repr(expr)) +
+            '<div><b>Records:</b> {}</div>'.format(record_count) +
+            '<br style="line-height: 0px" />' +
+            '<div>Mock data:</div>')
+        data = self.mock_data()
+        return header + data._repr_html_()
+
     def get(self):
         return self.backend.query(self.expr)
-
-
-def map_query_df(df, query):
-    ''' Pandas engine implementation applying a query to a dataframe.
-    Returns an index on the dataframe.
-    TODO implement NOT and test things. '''
-    if isinstance(query, bool):
-        return pd.Series(index=df.index, data=query)
-    if query.expr == 'le':
-        return df[query.attribute.name] <= query.value
-    if query.expr == 'ge':
-        return df[query.attribute.name] >= query.value
-    if query.expr == 'lt':
-        return df[query.attribute.name] < query.value
-    if query.expr == 'gt':
-        return df[query.attribute.name] > query.value
-    if query.expr == 'and':
-        return functools.reduce(
-            lambda ind1, ind2: ind1 & ind2,
-            (map_query_df(df, clause) for clause in query.clauses))
-    if query.expr == 'or':
-        return functools.reduce(
-            lambda ind1, ind2: ind1 | ind2,
-            (map_query_df(df, clause) for clause in query.clauses))
-
-
-def query_df(df, query):
-    ''' Use index from map_query_df to return filtered dataframe. '''
-    if query is None:
-        return df
-    return df[map_query_df(df, query)]
-
-
-class StaticDataFrameBackend(object):
-
-    def __init__(self, df):
-        self.df = df
-
-    def query(self, expr):
-        return query_df(self.df, expr)
-
-    def estimate_count(self, expr):
-        ''' Cheating here: the idea is to have a custom estimate based on the
-        provided expression (e.g. from known properties of time series data). '''
-        return query_df(self.df, expr).shape[0]
-
-
-if __name__ == '__main__':
-
-    import itertools
-    import functools
-
-    # Stand in for a backend function: runs queries on a grid.
-    backend = StaticDataFrameBackend(pd.DataFrame(
-        columns=['x', 'y'],
-        data=list(itertools.product(range(10), range(10)))))
-
-    # Interface object: filters like a dataframe.
-    attributes = [Float('x'), Float('y')]
-    dataset = DataSet('My dataset', attributes, backend)
-
-    # Querying returns a new object
-    filtered = dataset[dataset.x < 3][(dataset.y < 2) | (dataset.y >= 8)]
-    assert dataset.expr != filtered.expr
-
-    # get() method retrieves the actual data. This returns a dataframe which
-    # can immediately be operated on. Alternative is to run get() automagically
-    # when a function is called and apply the given function to the resulting
-    # dataframe. But that is probably a bad idea where large remote datasets are
-    # concerned.
-    print(dataset)
-    print()
-    print(dataset.get().sum())
-    print()
-    print(filtered)
-    print()
-    print(filtered.get().sum())
-    print()
-    print(filtered[filtered.x > 5])
-    print()
-    print(filtered[filtered.x > 5].get())

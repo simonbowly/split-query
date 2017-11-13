@@ -5,7 +5,7 @@ from hypothesis import given
 import hypothesis.strategies as st
 import pytest
 
-from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not
+from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not, math_repr
 from .strategies import float_expressions
 
 
@@ -59,3 +59,24 @@ def test_not_equal():
         assert a != b
         assert not a == b
         assert not hash(a) == hash(b)
+
+
+TESTCASES_MATH_REPR = [
+    (Eq(Float('x'), 0), 'x == 0'),
+    (Le(Float('y'), 1), 'y <= 1'),
+    (Ge(Float('z'), 2), 'z >= 2'),
+    (Lt(Float('x'), 3), 'x < 3'),
+    (Gt(Float('y'), 4), 'y > 4'),
+    (Not(Eq(Float('x'), 1)), '~(x == 1)'),
+    (
+        And([Ge(Float('x'), 1), Le(Float('x'), 2), Eq(Float('z'), 0)]),
+        '(x <= 2) & (x >= 1) & (z == 0)'),
+    (
+        Or([Eq(Float('x'), 0), Eq(Float('x'), 1)]),
+        '(x == 0) | (x == 1)'),
+]
+
+
+@pytest.mark.parametrize('expression, expected', TESTCASES_MATH_REPR)
+def test_math_repr(expression, expected):
+    assert math_repr(expression) == expected
