@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not
+from split_query.expressions import Float, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
 from interface import DataSet
 
 
@@ -16,7 +16,7 @@ def filter_test(test_func):
     relationship between the API and the query call. '''
     def _func():
         backend = mock.Mock()
-        attributes = [Float(n) for n in 'xyz']
+        attributes = [Float(n) for n in 'xyz'] + [String('s')]
         dataset = DataSet('Data', attributes, backend)
         # Filtered is a new DataSet. get() executes the query on the backend.
         filtered, expression = test_func(dataset)
@@ -72,6 +72,13 @@ def test_filter_not(dataset):
     return (
         dataset[~(dataset.y <= 2)],
         Not(Le(Float('y'), 2)))
+
+
+@filter_test
+def test_filter_in(dataset):
+    return (
+        dataset[dataset.s.in_(['a', 'b', 'c'])],
+        In(String('s'), ['a', 'b', 'c']))
 
 
 @mock.patch('interface.math_repr', return_value='math')

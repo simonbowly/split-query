@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from split_query.expressions import Float, And, Or, Not, Eq, Le, Lt, Ge, Gt, math_repr
+from split_query.expressions import Float, And, Or, Not, Eq, Le, Lt, Ge, Gt, In, math_repr
 from split_query.simplify import simplify_tree
 
 
@@ -51,6 +51,9 @@ class AttributeContainer(object):
     def __gt__(self, value):
         return ExpressionContainer(Gt(self._wrapped, value))
 
+    def in_(self, valueset):
+        return ExpressionContainer(In(self._wrapped, valueset))
+
 
 class DataSet(object):
     ''' Attribute access to wrapped variables, indexing access to queries.
@@ -85,7 +88,10 @@ class DataSet(object):
 
     def __repr__(self):
         expr = self.expr
-        record_count = self.backend.estimate_count(self.expr)
+        try:
+            record_count = self.backend.estimate_count(self.expr)
+        except:
+            record_count = -1
         header = (
             '{}\n'.format(self.name) +
             'Filter: {}\n'.format(math_repr(self.expr)) +
@@ -96,7 +102,10 @@ class DataSet(object):
 
     def _repr_html_(self):
         expr = self.expr
-        record_count = self.backend.estimate_count(self.expr)
+        try:
+            record_count = self.backend.estimate_count(self.expr)
+        except:
+            record_count = -1
         header = (
             '<div><H3>{}</H3></div>'.format(self.name) +
             '<br style="line-height: 0px" />' +

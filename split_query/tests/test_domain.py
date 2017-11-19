@@ -1,8 +1,11 @@
 
+from datetime import datetime, timedelta, timezone
+
 from hypothesis import given, event, strategies as st
 import pytest
 
-from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not
+from split_query.exceptions import SimplifyError
+from split_query.expressions import DateTime, Float, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
 from split_query.domain import get_attributes, simplify_intervals_univariate, simplify_domain
 from .strategies import float_expressions
 
@@ -19,8 +22,12 @@ TESTCASES_GET_ATTRIBUTES = [
     (
         And([Ge(Float('col8'), 3), Le(Float('col9'), 4)]),
         {Float('col8'), Float('col9')}),
+    (
+        And([Eq(DateTime('x'), 1), Eq(Float('x'), 1)]),
+        {DateTime('x'), Float('x')}),
     (True, set()),
     (False, set()),
+    (In(String('s1'), [1, 2, 3]), {String('s1')}),
 ]
 
 
@@ -31,6 +38,12 @@ def test_get_attributes(expression, columns):
 
 X1 = Float('x1')
 X2 = Float('x2')
+DT1 = DateTime('dt1')
+DT2 = DateTime('dt2')
+DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, timezone.utc)
+DAY = timedelta(days=1)
+STR = String('x')
+
 
 TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
     # Simple interval and set expressions are not altered.
@@ -84,6 +97,26 @@ TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
     (And([Gt(X1, 1), True]), Gt(X1, 1)),
     (Or([Lt(X1, 1), True]), True),
     (Or([Gt(X1, 1), False]), Gt(X1, 1)),
+    # Intervals using datetime variables and values.
+    (Ge(DT1, DTBASE), Ge(DT1, DTBASE)),
+    (
+        And([Gt(DT1, DTBASE), Lt(DT1, DTBASE + DAY * 10)]),
+        And([Gt(DT1, DTBASE), Lt(DT1, DTBASE + DAY * 10)])),
+    (
+        And([Le(DT1, DTBASE + DAY * 5), Lt(DT1, DTBASE + DAY * 10)]),
+        Le(DT1, DTBASE + DAY * 5)),
+    (
+        Eq(DT1, DTBASE + DAY + timedelta(milliseconds=1)),
+        Eq(DT1, DTBASE + DAY + timedelta(milliseconds=1))),
+    (And([Gt(DT1, DTBASE + DAY), Lt(DT1, DTBASE)]), False),
+    (Or([Gt(DT1, DTBASE + DAY), Lt(DT1, DTBASE + DAY * 2)]), True),
+    # Irreducible sets
+    (In(STR, ['1', '2', '3']), In(STR, ['1', '2', '3'])),
+    (Not(In(STR, ['1', '2'])), Not(In(STR, ['1', '2']))),
+    # Reducible sets
+    (Or([In(STR, ['1', '2']), In(STR, ['2', '3'])]), In(STR, ['1', '2', '3'])),
+    (And([In(STR, ['1', '2']), In(STR, ['2', '3'])]), In(STR, ['2'])),
+    (And([In(STR, ['1', '2']), Not(In(STR, ['2', '3']))]), In(STR, ['1'])),
 ]
 
 
@@ -96,11 +129,14 @@ def test_simplify_intervals_univariate(expression, result):
     And([Lt(Float('x1'), 1), Lt(Float('x2'), 2)]),
     True,
     Or([True, False]),
+    Gt(DT1, 2),
+    Lt(X1, DTBASE + DAY * 5),
+    Lt(DT1, datetime(2016, 1, 1, 0, 0, 0)),
     ])
 def test_simplify_intervals_univariate_error(expression):
     ''' Errors should be raised when using interval simplification
     on more than one dimension. '''
-    with pytest.raises(ValueError):
+    with pytest.raises(SimplifyError):
         simplify_intervals_univariate(expression)
 
 
@@ -112,14 +148,14 @@ def test_simplify_intervals_univariate_fuzz(expression):
     n_vars = len(get_attributes(expression))
     event('variables: {}'.format(n_vars))
     if n_vars == 0:
-        with pytest.raises(ValueError):
+        with pytest.raises(SimplifyError):
             simplify_intervals_univariate(expression)
     elif n_vars == 1:
         # Domain simplifier should handle any univariate case.
         simplify_intervals_univariate(expression)
     elif n_vars == 2:
         # Expect error in multivariate cases.
-        with pytest.raises(ValueError):
+        with pytest.raises(SimplifyError):
             simplify_intervals_univariate(expression)
     else:
         raise ValueError('Strategy produced unexpected result.')

@@ -21,14 +21,29 @@ class Expression(frozendict.frozendict):
             self.__class__.__name__, attr))
 
 
-class Float(Expression):
+class Attribute(Expression):
+
+    def __repr__(self):
+        return self.name
+
+
+class Float(Attribute):
     ''' Named continuous numerical attribute. '''
 
     def __init__(self, name):
         super().__init__('attr', dtype='float', name=name)
 
-    def __repr__(self):
-        return self.name
+
+class DateTime(Attribute):
+
+    def __init__(self, name):
+        super().__init__('attr', dtype='dt', name=name)
+
+
+class String(Attribute):
+
+    def __init__(self, name):
+        super().__init__('attr', dtype='str', name=name)
 
 
 class BinaryRelation(Expression):
@@ -73,6 +88,17 @@ class Gt(BinaryRelation):
 
     def __init__(self, attribute, value):
         super().__init__('gt', attribute=attribute, value=value)
+
+
+class In(Expression):
+
+    def __init__(self, attribute, valueset):
+        super().__init__(
+            'in', attribute=attribute, valueset=frozenset(valueset))
+
+    def __repr__(self):
+        return '{} in {}'.format(
+            repr(self.attribute), repr(sorted(self.valueset)))
 
 
 class LogicalRelation(Expression):
@@ -127,4 +153,6 @@ def math_repr(obj):
             math_repr(obj.value))
     if isinstance(obj, Float):
         return math_repr(obj.name)
+    if isinstance(obj, In):
+        return repr(obj)
     return str(obj)

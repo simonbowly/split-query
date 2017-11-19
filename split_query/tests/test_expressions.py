@@ -1,21 +1,25 @@
 
+from datetime import datetime, timezone
 import itertools
 
 from hypothesis import given
 import hypothesis.strategies as st
 import pytest
 
-from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not, math_repr
+from split_query.expressions import Float, DateTime, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not, math_repr
 from .strategies import float_expressions
 
 
 TESTCASES_REPR = [
+    (DateTime('x'), 'x'),
     (Float('x'), 'x'),
+    (String('x'), 'x'),
     (Eq(Float('x'), 1), 'Eq(x,1)'),
     (Le(Float('z'), 2), 'Le(z,2)'),
     (Lt(Float('y'), 3), 'Lt(y,3)'),
     (Ge(Float('y'), 4), 'Ge(y,4)'),
     (Gt(Float('z'), 5), 'Gt(z,5)'),
+    (In(String('x'), ['a', 'b']), "x in ['a', 'b']"),
     (And([1, 2, 3]), 'And([1, 2, 3])'),
     (Or([1, 2, 3]), 'Or([1, 2, 3])'),
     (Not(Eq(Float('y'), 0)), 'Not(Eq(y,0))'),
@@ -38,10 +42,13 @@ def test_hash_repr_able(expression):
 
 def expressions_not_equal():
     ''' Generates distinct expressions for != testing. '''
+    yield DateTime('x')
     yield Float('x')
+    yield String('x')
     for relation, attr, value in itertools.product(
             [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
         yield relation(attr, value)
+    yield In(String('x'), ['a', 'b'])
     yield And(['a', 'b'])
     yield And(['a', 'c'])
     yield Or(['a', 'b'])
@@ -74,6 +81,15 @@ TESTCASES_MATH_REPR = [
     (
         Or([Eq(Float('x'), 0), Eq(Float('x'), 1)]),
         '(x == 0) | (x == 1)'),
+    (
+        Ge(DateTime('x'), datetime(2017, 1, 1, 2, 5, 0, 0, timezone.utc)),
+        'x >= 2017-01-01 02:05:00+00:00'),
+    (
+        Lt(DateTime('x'), datetime(2017, 1, 1, 2, 5, 0, 0, timezone.utc)),
+        'x < 2017-01-01 02:05:00+00:00'),
+    (
+        In(String('x'), ['a', 'b']),
+        "x in ['a', 'b']"),
 ]
 
 
