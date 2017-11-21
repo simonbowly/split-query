@@ -62,7 +62,7 @@ def test_query_df(query, expected):
     assert set(result['point']) == set(expected)
 
 
-@given(float_expressions('xy', max_leaves=30, literals=True))
+@given(float_expressions('xy', max_leaves=20, literals=True))
 def test_query_df_fuzz(expression):
     ''' Fuzz everything! Checks that a simplified expression returns the
     same result as the original using the pandas engine. '''

@@ -18,6 +18,9 @@ TESTCASES_REPR = [
     (Lt(Attribute('y'), 3), 'Lt(y,3)'),
     (Ge(Attribute('y'), 4), 'Ge(y,4)'),
     (Gt(Attribute('z'), 5), 'Gt(z,5)'),
+    (
+        Gt(Attribute('z'), datetime(2017, 1, 1, 2, 5, 0, 0, timezone.utc)),
+        'Gt(z,datetime.datetime(2017, 1, 1, 2, 5, tzinfo=datetime.timezone.utc))'),
     (In(Attribute('x'), ['a', 'b']), "In(x,['a', 'b'])"),
     (And([1, 2, 3]), 'And([1, 2, 3])'),
     (Or([1, 2, 3]), 'Or([1, 2, 3])'),
