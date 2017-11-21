@@ -3,7 +3,7 @@ import functools
 
 import pandas as pd
 
-from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not
+from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
 
 
 def map_query_df(df, query):
@@ -22,6 +22,8 @@ def map_query_df(df, query):
         return df[query.attribute.name] < query.value
     if isinstance(query, Gt):
         return df[query.attribute.name] > query.value
+    if isinstance(query, In):
+        return df[query.attribute.name].isin(query.valueset)
     if isinstance(query, And):
         return functools.reduce(
             lambda ind1, ind2: ind1 & ind2,

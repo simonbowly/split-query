@@ -1,5 +1,6 @@
 ''' Maybe split this? It mixes engine and cross-package fuzzing. '''
 
+from datetime import datetime, timedelta, timezone
 import itertools
 
 from hypothesis import assume, event, given
@@ -7,7 +8,7 @@ import pandas as pd
 import pytest
 
 from split_query.domain import simplify_domain
-from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not
+from split_query.expressions import DateTime, Float, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
 from split_query.simplify import simplify_tree
 from split_query.truth_table import get_clauses, expand_dnf
 from engine import query_df
@@ -15,9 +16,14 @@ from tests.strategies import float_expressions
 
 
 x, y, z = [Float(n) for n in 'xyz']
+dtx = DateTime('dtx')
+point = String('point')
+
+DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, timezone.utc)
+DAY = timedelta(days=1)
 
 _data = itertools.product(range(5), repeat=2)
-_func = lambda entry: pd.Series(dict(entry, point='{x}:{y}'.format(**entry)))
+_func = lambda entry: pd.Series(dict(entry, point='{x}:{y}'.format(**entry), dtx=DTBASE + DAY * entry['x']))
 SOURCE_2D = pd.DataFrame(columns=['x', 'y'], data=list(_data)).apply(_func, axis='columns')
 
 _data = itertools.product(range(-10, 11, 4), repeat=3)
@@ -39,6 +45,14 @@ TESTCASES_QUERY = [
         ['0:0', '0:1', '0:2', '0:3', '0:4',
         '1:0', '1:1', '1:2', '1:3', '1:4',
         '3:0', '3:1', '3:2', '3:3', '3:4']),
+    (
+        In(point, ['0:0', '1:1', '2:4']),
+        ['0:0', '1:1', '2:4']),
+    (
+        And([
+            Ge(dtx, DTBASE + DAY * 3), Le(y, 2),
+            Not(In(point, ['3:1', '4:0']))]),
+        ['3:0', '3:2', '4:1', '4:2']),
 ]
 
 
