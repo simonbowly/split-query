@@ -1,2 +1,3 @@
-sympy
 frozendict
+msgpack-python
+sympy

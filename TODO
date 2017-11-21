@@ -1,3 +1,0 @@
-* Include In/Eq in the hypothesis strategy expression builder.
-* Decide how/if Eq/In should interact with continuous domain expressions (will depend on sympy support?).
-* Should typing be done upfront?
