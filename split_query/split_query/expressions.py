@@ -1,6 +1,10 @@
 ''' Library of immutable objects used to describe the content of a query. '''
 
+import datetime
+import functools
+
 import frozendict
+import msgpack
 
 
 class Expression(frozendict.frozendict):
@@ -142,3 +146,48 @@ def math_repr(obj):
         return '{} in {}'.format(
             repr(obj.attribute), repr(sorted(obj.valueset)))
     return str(obj)
+
+
+def msgpack_default(obj):
+    ''' Handle frozen things. Note that since order of iteration over a set is arbitrary,
+    byte representation will not be consistent. '''
+    if isinstance(obj, frozendict.frozendict):
+        return dict(obj)
+    if isinstance(obj, frozenset):
+        return list(obj)
+    if isinstance(obj, datetime.datetime):
+        return {'dt': True, 'data': obj.isoformat()}
+    return obj
+
+
+def msgpack_object_hook(obj):
+    ''' Dictionary representations converted to expression objects where possible. '''
+    if 'expr' in obj:
+        if obj['expr'] == 'attr':
+            return Attribute(obj['name'])
+        if obj['expr'] == 'eq':
+            return Eq(obj['attribute'], obj['value'])
+        if obj['expr'] == 'le':
+            return Le(obj['attribute'], obj['value'])
+        if obj['expr'] == 'lt':
+            return Lt(obj['attribute'], obj['value'])
+        if obj['expr'] == 'ge':
+            return Ge(obj['attribute'], obj['value'])
+        if obj['expr'] == 'gt':
+            return Gt(obj['attribute'], obj['value'])
+        if obj['expr'] == 'in':
+            return In(obj['attribute'], obj['valueset'])
+        if obj['expr'] == 'and':
+            return And(obj['clauses'])
+        if obj['expr'] == 'or':
+            return Or(obj['clauses'])
+        if obj['expr'] == 'not':
+            return Not(obj['clause'])
+    if 'dt' in obj and obj['dt'] is True:
+        return iso8601.parse_date(obj['data'])
+    return obj
+
+
+# Defaults and object hooks included to packers.
+packb = functools.partial(msgpack.packb, default=msgpack_default, use_bin_type=False)
+unpackb = functools.partial(msgpack.unpackb, object_hook=msgpack_object_hook, encoding='utf-8')

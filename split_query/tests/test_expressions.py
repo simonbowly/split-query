@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given
 
 from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
-                                     Not, Or, math_repr)
+                                     Not, Or, math_repr, packb, unpackb)
 
 from .strategies import float_expressions
 
@@ -95,3 +95,20 @@ TESTCASES_MATH_REPR = [
 @pytest.mark.parametrize('expression, expected', TESTCASES_MATH_REPR)
 def test_math_repr(expression, expected):
     assert math_repr(expression) == expected
+
+
+@pytest.mark.parametrize('expression', [tc[0] for tc in TESTCASES_REPR])
+def test_msgpackable(expression):
+    packed = packb(expression)
+    assert isinstance(packed, bytes)
+    unpacked = unpackb(packed)
+    assert unpacked == expression
+    assert type(unpacked) == type(expression)
+
+
+@given(float_expressions('xyz'))
+def test_msgpackable_fuzz(expression):
+    packed = packb(expression)
+    assert isinstance(packed, bytes)
+    unpacked = unpackb(packed)
+    assert unpacked == expression
