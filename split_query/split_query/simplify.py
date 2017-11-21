@@ -1,7 +1,7 @@
 
 import itertools
 
-from .expressions import And, Or, Not
+from .expressions import And, Not, Or
 
 
 def simplify_tree(expression):

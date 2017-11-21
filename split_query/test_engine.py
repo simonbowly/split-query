@@ -1,23 +1,23 @@
 ''' Maybe split this? It mixes engine and cross-package fuzzing. '''
 
-from datetime import datetime, timedelta, timezone
 import itertools
+from datetime import datetime, timedelta, timezone
 
-from hypothesis import assume, event, given
 import pandas as pd
 import pytest
+from hypothesis import assume, event, given
 
-from split_query.domain import simplify_domain
-from split_query.expressions import DateTime, Float, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
-from split_query.simplify import simplify_tree
-from split_query.truth_table import get_clauses, expand_dnf
 from engine import query_df
+from split_query.domain import simplify_domain
+from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+                                     Not, Or)
+from split_query.simplify import simplify_tree
+from split_query.truth_table import expand_dnf, get_clauses
 from tests.strategies import float_expressions
 
-
-x, y, z = [Float(n) for n in 'xyz']
-dtx = DateTime('dtx')
-point = String('point')
+x, y, z = [Attribute(n) for n in 'xyz']
+dtx = Attribute('dtx')
+point = Attribute('point')
 
 DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, timezone.utc)
 DAY = timedelta(days=1)

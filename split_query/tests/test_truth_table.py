@@ -1,12 +1,14 @@
 
-from frozendict import frozendict
-from hypothesis import assume, given, strategies as st, event
 import pytest
+from frozendict import frozendict
+from hypothesis import strategies as st
+from hypothesis import assume, event, given
 
 from split_query.expressions import And, Not, Or
-from split_query.truth_table import get_clauses, substitute, truth_table, expand_dnf
-from .strategies import expressions, float_expressions
+from split_query.truth_table import (expand_dnf, get_clauses, substitute,
+                                     truth_table)
 
+from .strategies import expressions, float_expressions
 
 TESTCASES_GET_CLAUSES = [
     ('a',                           {'a'}),

@@ -2,9 +2,9 @@
 import numpy as np
 import pandas as pd
 
-from split_query.expressions import Float, And, Or, Not, Eq, Le, Lt, Ge, Gt, In, math_repr
+from split_query.expressions import (And, Eq, Ge, Gt, In, Le, Lt, Not, Or,
+                                     math_repr)
 from split_query.simplify import simplify_tree
-
 
 ATTR_ERROR = "'{}' object has no attribute '{}'"
 
@@ -51,8 +51,12 @@ class AttributeContainer(object):
     def __gt__(self, value):
         return ExpressionContainer(Gt(self._wrapped, value))
 
-    def in_(self, valueset):
+    def isin(self, valueset):
         return ExpressionContainer(In(self._wrapped, valueset))
+
+    def between(self, lower, upper):
+        return ExpressionContainer(
+            And([Ge(self._wrapped, lower), Le(self._wrapped, upper)]))
 
 
 class DataSet(object):

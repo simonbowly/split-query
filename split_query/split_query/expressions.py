@@ -22,28 +22,13 @@ class Expression(frozendict.frozendict):
 
 
 class Attribute(Expression):
-
-    def __repr__(self):
-        return self.name
-
-
-class Float(Attribute):
     ''' Named continuous numerical attribute. '''
 
     def __init__(self, name):
-        super().__init__('attr', dtype='float', name=name)
+        super().__init__('attr', name=name)
 
-
-class DateTime(Attribute):
-
-    def __init__(self, name):
-        super().__init__('attr', dtype='dt', name=name)
-
-
-class String(Attribute):
-
-    def __init__(self, name):
-        super().__init__('attr', dtype='str', name=name)
+    def __repr__(self):
+        return self.name
 
 
 class BinaryRelation(Expression):
@@ -97,7 +82,7 @@ class In(Expression):
             'in', attribute=attribute, valueset=frozenset(valueset))
 
     def __repr__(self):
-        return '{} in {}'.format(
+        return 'In({},{})'.format(
             repr(self.attribute), repr(sorted(self.valueset)))
 
 
@@ -151,8 +136,9 @@ def math_repr(obj):
         return '{} {} {}'.format(
             math_repr(obj.attribute), symbol_map[obj['expr']],
             math_repr(obj.value))
-    if isinstance(obj, Float):
+    if isinstance(obj, Attribute):
         return math_repr(obj.name)
     if isinstance(obj, In):
-        return repr(obj)
+        return '{} in {}'.format(
+            repr(obj.attribute), repr(sorted(obj.valueset)))
     return str(obj)

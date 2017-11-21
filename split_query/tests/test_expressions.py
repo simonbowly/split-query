@@ -1,28 +1,27 @@
 
-from datetime import datetime, timezone
 import itertools
+from datetime import datetime, timezone
 
-from hypothesis import given
 import hypothesis.strategies as st
 import pytest
+from hypothesis import given
 
-from split_query.expressions import Float, DateTime, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not, math_repr
+from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+                                     Not, Or, math_repr)
+
 from .strategies import float_expressions
 
-
 TESTCASES_REPR = [
-    (DateTime('x'), 'x'),
-    (Float('x'), 'x'),
-    (String('x'), 'x'),
-    (Eq(Float('x'), 1), 'Eq(x,1)'),
-    (Le(Float('z'), 2), 'Le(z,2)'),
-    (Lt(Float('y'), 3), 'Lt(y,3)'),
-    (Ge(Float('y'), 4), 'Ge(y,4)'),
-    (Gt(Float('z'), 5), 'Gt(z,5)'),
-    (In(String('x'), ['a', 'b']), "x in ['a', 'b']"),
+    (Attribute('x'), 'x'),
+    (Eq(Attribute('x'), 1), 'Eq(x,1)'),
+    (Le(Attribute('z'), 2), 'Le(z,2)'),
+    (Lt(Attribute('y'), 3), 'Lt(y,3)'),
+    (Ge(Attribute('y'), 4), 'Ge(y,4)'),
+    (Gt(Attribute('z'), 5), 'Gt(z,5)'),
+    (In(Attribute('x'), ['a', 'b']), "In(x,['a', 'b'])"),
     (And([1, 2, 3]), 'And([1, 2, 3])'),
     (Or([1, 2, 3]), 'Or([1, 2, 3])'),
-    (Not(Eq(Float('y'), 0)), 'Not(Eq(y,0))'),
+    (Not(Eq(Attribute('y'), 0)), 'Not(Eq(y,0))'),
 ]
 
 
@@ -42,13 +41,13 @@ def test_hash_repr_able(expression):
 
 def expressions_not_equal():
     ''' Generates distinct expressions for != testing. '''
-    yield DateTime('x')
-    yield Float('x')
-    yield String('x')
+    # yield DateTime('x')
+    yield Attribute('x')
+    # yield String('x')
     for relation, attr, value in itertools.product(
             [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
         yield relation(attr, value)
-    yield In(String('x'), ['a', 'b'])
+    yield In(Attribute('x'), ['a', 'b'])
     yield And(['a', 'b'])
     yield And(['a', 'c'])
     yield Or(['a', 'b'])
@@ -69,26 +68,26 @@ def test_not_equal():
 
 
 TESTCASES_MATH_REPR = [
-    (Eq(Float('x'), 0), 'x == 0'),
-    (Le(Float('y'), 1), 'y <= 1'),
-    (Ge(Float('z'), 2), 'z >= 2'),
-    (Lt(Float('x'), 3), 'x < 3'),
-    (Gt(Float('y'), 4), 'y > 4'),
-    (Not(Eq(Float('x'), 1)), '~(x == 1)'),
+    (Eq(Attribute('x'), 0), 'x == 0'),
+    (Le(Attribute('y'), 1), 'y <= 1'),
+    (Ge(Attribute('z'), 2), 'z >= 2'),
+    (Lt(Attribute('x'), 3), 'x < 3'),
+    (Gt(Attribute('y'), 4), 'y > 4'),
+    (Not(Eq(Attribute('x'), 1)), '~(x == 1)'),
     (
-        And([Ge(Float('x'), 1), Le(Float('x'), 2), Eq(Float('z'), 0)]),
+        And([Ge(Attribute('x'), 1), Le(Attribute('x'), 2), Eq(Attribute('z'), 0)]),
         '(x <= 2) & (x >= 1) & (z == 0)'),
     (
-        Or([Eq(Float('x'), 0), Eq(Float('x'), 1)]),
+        Or([Eq(Attribute('x'), 0), Eq(Attribute('x'), 1)]),
         '(x == 0) | (x == 1)'),
     (
-        Ge(DateTime('x'), datetime(2017, 1, 1, 2, 5, 0, 0, timezone.utc)),
+        Ge(Attribute('x'), datetime(2017, 1, 1, 2, 5, 0, 0, timezone.utc)),
         'x >= 2017-01-01 02:05:00+00:00'),
     (
-        Lt(DateTime('x'), datetime(2017, 1, 1, 2, 5, 0, 0, timezone.utc)),
+        Lt(Attribute('x'), datetime(2017, 1, 1, 2, 5, 0, 0, timezone.utc)),
         'x < 2017-01-01 02:05:00+00:00'),
     (
-        In(String('x'), ['a', 'b']),
+        In(Attribute('x'), ['a', 'b']),
         "x in ['a', 'b']"),
 ]
 

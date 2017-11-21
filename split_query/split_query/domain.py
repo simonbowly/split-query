@@ -1,16 +1,16 @@
 
 import collections
-from datetime import datetime, timedelta, timezone
 import functools
 import itertools
+from datetime import datetime, timedelta, timezone
 
 import sympy as sp
 
 from .exceptions import SimplifyError
-from .expressions import Attribute, Float, DateTime, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
-
+from .expressions import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or
 
 EPOCH = datetime(1970, 1, 1, 0, 0, 0, 0, timezone.utc)
+EPOCH_NAIVE = datetime(1970, 1, 1, 0, 0, 0, 0)
 
 
 def get_attributes(expr):
@@ -30,26 +30,61 @@ def get_attributes(expr):
     raise ValueError('Unhandled expression {}'.format(repr(expr)))
 
 
-def _convert_value(expression):
-    if isinstance(expression.attribute, Float):
+def get_types(expr):
+    ''' Return a set of types (of constants) in the expression. '''
+    if isinstance(expr, bool):
+        return set()
+    if any(isinstance(expr, t) for t in [And, Or]):
+        return functools.reduce(
+            lambda a, b: a.union(b),
+            map(get_types, expr.clauses))
+    if isinstance(expr, Not):
+        return get_types(expr.clause)
+    if any(isinstance(expr, t) for t in [Eq, Le, Lt, Ge, Gt]):
         try:
-            float(expression.value)
-            return expression.value
+            float(expr.value)
+            return {'numeric'}
         except:
-            raise SimplifyError('Expected a numeric type.')
-    elif isinstance(expression.attribute, DateTime):
-        if isinstance(expression.value, datetime):
-            if expression.value.tzinfo is None:
-                raise SimplifyError('Simplification requires timezone')
-            return (expression.value - EPOCH).total_seconds()
-        else:
-            raise SimplifyError('Expected a datetime object.')
+            pass
+        if isinstance(expr.value, datetime):
+            if expr.value.tzinfo is None:
+                return {'datetime-naive'}
+            else:
+                return {'datetime-tz'}
+    raise ValueError('Unhandled object: {}'.format(repr(expr)))
+
+
+def get_expression_types(expr):
+    if isinstance(expr, bool):
+        return set()
+    if any(isinstance(expr, t) for t in [And, Or]):
+        return functools.reduce(
+            lambda a, b: a.union(b),
+            map(get_expression_types, expr.clauses))
+    if isinstance(expr, Not):
+        return get_expression_types(expr.clause)
+    if any(isinstance(expr, t) for t in [Eq, Le, Lt, Ge, Gt, In]):
+        return {expr.expr}
+    raise ValueError('Unhandled object: {}'.format(repr(expr)))
+
+
+def _convert_value(expression):
+    try:
+        float(expression.value)
+        return expression.value
+    except:
+        pass
+    if isinstance(expression.value, datetime):
+        if expression.value.tzinfo is None:
+            return (expression.value - EPOCH_NAIVE).total_seconds()
+        return (expression.value - EPOCH).total_seconds()
+    raise SimplifyError('Could not process: {}.'.format(str(expression.value)))
 
 
 def _to_interval(expression):
     ''' Recursively convert an expression composed of relations into
     a sympy real number interval. Note that this does not check that the
-    given expression actually constitues a 1D interval. '''
+    given expression actually constitutes a 1D interval. '''
     if expression is True:
         return sp.Interval.open(-sp.S.Infinity, sp.S.Infinity)
     if expression is False:
@@ -77,19 +112,21 @@ def _to_interval(expression):
     raise ValueError('Unhandled expression: {}'.format(repr(expression)))
 
 
-def _from_interval(column, interval):
+def _from_interval(column, constant_type, interval):
     '''  Convert sympy real number interval to logical/relational expression
     using the given attribute. Checks type of supplied column, converting
     sympy interval values if necessary. '''
-    if isinstance(column, Float):
+    if constant_type == 'numeric':
         converter = float
-    elif isinstance(column, DateTime):
+    elif constant_type == 'datetime-tz':
         converter = lambda val: EPOCH + timedelta(microseconds=int(round(val*10**6)))
+    elif constant_type == 'datetime-naive':
+        converter = lambda val: EPOCH_NAIVE + timedelta(microseconds=int(round(val*10**6)))
     else:
-        raise SimplifyError()
+        raise SimplifyError('Constant type: {}'.format(constant_type))
     # Process statement types
     if isinstance(interval, sp.Union):
-        return Or(_from_interval(column, arg) for arg in interval.args)
+        return Or(_from_interval(column, constant_type, arg) for arg in interval.args)
     if isinstance(interval, sp.EmptySet):
         return False
     if isinstance(interval, sp.FiniteSet):
@@ -163,9 +200,22 @@ def simplify_intervals_univariate(expression):
     if len(attributes) > 1:
         raise SimplifyError("Expression is multivariate.")
     attribute = next(iter(attributes))
-    if isinstance(attribute, String):
+    # Check whether dealing with discrete or continuous filters.
+    expression_types = get_expression_types(expression)
+    if 'in' in expression_types:
+        if len(expression_types) > 1:
+            raise SimplifyError('Cannot simplify combined discrete and continuous filters')
         return _from_set(attribute, _to_set(expression))
-    return _from_interval(attribute, _to_interval(expression))
+    # Check that types are consistent for continuous domains.
+    constant_types = get_types(expression)
+    if len(constant_types) == 0:
+        raise SimplifyError("Expression contains no constant types.")
+    if len(constant_types) > 1:
+        raise SimplifyError(
+            "Cannot simplify expression containing multiple types: " +
+            str(constant_types))
+    constant_type = next(iter(constant_types))
+    return _from_interval(attribute, constant_type, _to_interval(expression))
 
 
 def simplify_domain(expression):

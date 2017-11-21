@@ -1,33 +1,36 @@
 
 from datetime import datetime, timedelta, timezone
 
-from hypothesis import given, event, strategies as st
 import pytest
+from hypothesis import strategies as st
+from hypothesis import event, given
 
+from split_query.domain import (get_attributes, simplify_domain,
+                                simplify_intervals_univariate)
 from split_query.exceptions import SimplifyError
-from split_query.expressions import DateTime, Float, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
-from split_query.domain import get_attributes, simplify_intervals_univariate, simplify_domain
+from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+                                     Not, Or)
+
 from .strategies import float_expressions
 
-
 TESTCASES_GET_ATTRIBUTES = [
-    (Gt(Float('col1'), 1), {Float('col1')}),
-    (Ge(Float('col2'), 1), {Float('col2')}),
-    (Lt(Float('col3'), 1), {Float('col3')}),
-    (Le(Float('col4'), 1), {Float('col4')}),
-    (Not(Le(Float('col5'), 1)), {Float('col5')}),
+    (Gt(Attribute('col1'), 1), {Attribute('col1')}),
+    (Ge(Attribute('col2'), 1), {Attribute('col2')}),
+    (Lt(Attribute('col3'), 1), {Attribute('col3')}),
+    (Le(Attribute('col4'), 1), {Attribute('col4')}),
+    (Not(Le(Attribute('col5'), 1)), {Attribute('col5')}),
     (
-        And([Ge(Float('col6'), 3), Le(Float('col7'), 4)]),
-        {Float('col6'), Float('col7')}),
+        And([Ge(Attribute('col6'), 3), Le(Attribute('col7'), 4)]),
+        {Attribute('col6'), Attribute('col7')}),
     (
-        And([Ge(Float('col8'), 3), Le(Float('col9'), 4)]),
-        {Float('col8'), Float('col9')}),
-    (
-        And([Eq(DateTime('x'), 1), Eq(Float('x'), 1)]),
-        {DateTime('x'), Float('x')}),
+        And([Ge(Attribute('col8'), 3), Le(Attribute('col9'), 4)]),
+        {Attribute('col8'), Attribute('col9')}),
+    # (
+    #     And([Eq(DateTime('x'), 1), Eq(Attribute('x'), 1)]),
+    #     {DateTime('x'), Attribute('x')}),
     (True, set()),
     (False, set()),
-    (In(String('s1'), [1, 2, 3]), {String('s1')}),
+    (In(Attribute('s1'), [1, 2, 3]), {Attribute('s1')}),
 ]
 
 
@@ -36,13 +39,13 @@ def test_get_attributes(expression, columns):
     assert get_attributes(expression) == columns
 
 
-X1 = Float('x1')
-X2 = Float('x2')
-DT1 = DateTime('dt1')
-DT2 = DateTime('dt2')
+X1 = Attribute('x1')
+X2 = Attribute('x2')
+DT1 = Attribute('dt1')
+DT2 = Attribute('dt2')
 DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, timezone.utc)
 DAY = timedelta(days=1)
-STR = String('x')
+STR = Attribute('x')
 
 
 TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
@@ -110,6 +113,9 @@ TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
         Eq(DT1, DTBASE + DAY + timedelta(milliseconds=1))),
     (And([Gt(DT1, DTBASE + DAY), Lt(DT1, DTBASE)]), False),
     (Or([Gt(DT1, DTBASE + DAY), Lt(DT1, DTBASE + DAY * 2)]), True),
+    (
+        Lt(X1, datetime(2016, 1, 1, 0, 0, 0)),
+        Lt(X1, datetime(2016, 1, 1, 0, 0, 0))),
     # Irreducible sets
     (In(STR, ['1', '2', '3']), In(STR, ['1', '2', '3'])),
     (Not(In(STR, ['1', '2'])), Not(In(STR, ['1', '2']))),
@@ -126,12 +132,19 @@ def test_simplify_intervals_univariate(expression, result):
 
 
 @pytest.mark.parametrize('expression', [
-    And([Lt(Float('x1'), 1), Lt(Float('x2'), 2)]),
+    # Attempting to simplify multivariate.
+    And([Lt(X1, 1), Lt(X2, 2)]),
+    # No variables in expression.
     True,
     Or([True, False]),
-    Gt(DT1, 2),
-    Lt(X1, DTBASE + DAY * 5),
-    Lt(DT1, datetime(2016, 1, 1, 0, 0, 0)),
+    # Mixed type filters on same variable.
+    And([Gt(DT1, 2), Lt(DT1, DTBASE + DAY * 5)]),
+    # Timezone-naive and aware datetimes.
+    And([
+        Lt(X1, DTBASE + DAY * 5),
+        Lt(X1, datetime(2016, 1, 1, 0, 0, 0))]),
+    # Mixed discrete and continuous filters.
+    And([In(X1, [1, 2, 3]), Gt(X1, 2)]),
     ])
 def test_simplify_intervals_univariate_error(expression):
     ''' Errors should be raised when using interval simplification

@@ -1,12 +1,12 @@
 
-from hypothesis import given
 from hypothesis import strategies as st
+from hypothesis import given
 
-from split_query.expressions import Float, Eq, Le, Lt, Ge, Gt, And, Or, Not
+from split_query.expressions import And, Attribute, Eq, Ge, Gt, Le, Lt, Not, Or
 
 
 def attributes(dtype, names):
-    ''' Return a strategy generating Float attributes from the given name
+    ''' Return a strategy generating attributes from the given name
     generation strategy. If a list of names is provided, they will be used
     to create a one_of strategy for the attribute names. '''
     try:
@@ -52,7 +52,7 @@ def expressions(clauses, max_leaves):
 
 
 def float_expressions(names, max_leaves=100, literals=True):
-    clauses = relations(attributes(Float, names), st.integers(-10, 10))
+    clauses = relations(attributes(Attribute, names), st.integers(-10, 10))
     if literals:
         clauses = clauses | st.booleans()
     return expressions(clauses, max_leaves=max_leaves)

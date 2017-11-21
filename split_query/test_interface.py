@@ -4,8 +4,9 @@ from unittest import mock
 
 import pytest
 
-from split_query.expressions import Float, String, Eq, Le, Lt, Ge, Gt, In, And, Or, Not
 from interface import DataSet
+from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+                                     Not, Or)
 
 
 def filter_test(test_func):
@@ -16,7 +17,7 @@ def filter_test(test_func):
     relationship between the API and the query call. '''
     def _func():
         backend = mock.Mock()
-        attributes = [Float(n) for n in 'xyz'] + [String('s')]
+        attributes = [Attribute(n) for n in 'xyz'] + [Attribute('s')]
         dataset = DataSet('Data', attributes, backend)
         # Filtered is a new DataSet. get() executes the query on the backend.
         filtered, expression = test_func(dataset)
@@ -43,42 +44,49 @@ def test_no_filter(dataset):
 def test_filter_eq(dataset):
     return (
         dataset[dataset.x == 4],
-        Eq(Float('x'), 4))
+        Eq(Attribute('x'), 4))
 
 
 @filter_test
 def test_filter_chained(dataset):
     return (
         dataset[dataset.x <= 1][dataset.z >= 0],
-        And([Le(Float('x'), 1), Ge(Float('z'), 0)]))
+        And([Le(Attribute('x'), 1), Ge(Attribute('z'), 0)]))
 
 
 @filter_test
 def test_filter_and(dataset):
     return (
         dataset[(dataset.y < 2) & (dataset.x > 5)],
-        And([Lt(Float('y'), 2), Gt(Float('x'), 5)]))
+        And([Lt(Attribute('y'), 2), Gt(Attribute('x'), 5)]))
 
 
 @filter_test
 def test_filter_or(dataset):
     return (
         dataset[(dataset.y == 2) | (dataset.z < 1)],
-        Or([(Eq(Float('y'), 2)), Lt(Float('z'), 1)]))
+        Or([(Eq(Attribute('y'), 2)), Lt(Attribute('z'), 1)]))
 
 
 @filter_test
 def test_filter_not(dataset):
     return (
         dataset[~(dataset.y <= 2)],
-        Not(Le(Float('y'), 2)))
+        Not(Le(Attribute('y'), 2)))
 
 
 @filter_test
-def test_filter_in(dataset):
+def test_filter_isin(dataset):
     return (
-        dataset[dataset.s.in_(['a', 'b', 'c'])],
-        In(String('s'), ['a', 'b', 'c']))
+        dataset[dataset.s.isin(['a', 'b', 'c'])],
+        In(Attribute('s'), ['a', 'b', 'c']))
+
+
+@filter_test
+def test_filter_between(dataset):
+    return (
+        dataset[dataset.x.between(1, 3)],
+        And([Ge(Attribute('x'), 1), Le(Attribute('x'), 3)]))
 
 
 @mock.patch('interface.math_repr', return_value='math')
@@ -87,7 +95,7 @@ def test_dataset_repr(math_repr):
     backend = mock.Mock()
     backend.estimate_count.return_value = 15
 
-    attributes = [Float(n) for n in 'xyz']
+    attributes = [Attribute(n) for n in 'xyz']
     dataset = DataSet('Data', attributes, backend)
     dataset = dataset[dataset.x == 0]
     # Takes the place of a returned dataframe. It will simply have its
@@ -95,8 +103,8 @@ def test_dataset_repr(math_repr):
     dataset.mock_data = mock.Mock(return_value='MOCK_DF')
 
     result = repr(dataset)
-    math_repr.assert_called_once_with(Eq(Float('x'), 0))
-    backend.estimate_count.assert_called_once_with(Eq(Float('x'), 0))
+    math_repr.assert_called_once_with(Eq(Attribute('x'), 0))
+    backend.estimate_count.assert_called_once_with(Eq(Attribute('x'), 0))
     assert result == "Data\nFilter: math\nRecords: 15\nMock data:\n'MOCK_DF'"
 
 
@@ -106,7 +114,7 @@ def test_dataset_repr_html(math_repr):
     backend = mock.Mock()
     backend.estimate_count.return_value = 12
 
-    attributes = [Float(n) for n in 'xyz']
+    attributes = [Attribute(n) for n in 'xyz']
     dataset = DataSet('OtherData', attributes, backend)
     dataset = dataset[dataset.y == 1]
     # Takes the place of a returned dataframe. It will simply have its
@@ -115,8 +123,8 @@ def test_dataset_repr_html(math_repr):
     dataset.mock_data()._repr_html_.return_value = 'mock_repr'
 
     result = dataset._repr_html_()
-    math_repr.assert_called_once_with(Eq(Float('y'), 1))
-    backend.estimate_count.assert_called_once_with(Eq(Float('y'), 1))
+    math_repr.assert_called_once_with(Eq(Attribute('y'), 1))
+    backend.estimate_count.assert_called_once_with(Eq(Attribute('y'), 1))
     assert result == (
         '<div><H3>OtherData</H3></div>' +
         '<br style="line-height: 0px" />' +
@@ -127,7 +135,7 @@ def test_dataset_repr_html(math_repr):
 
 
 def test_mock_data():
-    attributes = [Float(n) for n in 'xyz']
+    attributes = [Attribute(n) for n in 'xyz']
     dataset = DataSet('OtherData', attributes, None)
     mock_data = dataset.mock_data()
     assert mock_data.to_dict() == dict(

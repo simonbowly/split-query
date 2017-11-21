@@ -1,11 +1,12 @@
 
-from hypothesis import given, assume, event, strategies as st
 import pytest
+from hypothesis import strategies as st
+from hypothesis import assume, event, given
 
-from split_query.expressions import And, Or, Not, Float
+from split_query.expressions import And, Not, Or
 from split_query.simplify import simplify_tree
-from .strategies import float_expressions, expressions
 
+from .strategies import expressions, float_expressions
 
 TESTCASES_SIMPLIFY_TREE = [
     # Unsimplifiable
