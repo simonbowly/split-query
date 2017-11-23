@@ -8,6 +8,7 @@ import sympy as sp
 
 from .exceptions import SimplifyError
 from .expressions import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or
+from .converters import convert_expression
 
 EPOCH = datetime(1970, 1, 1, 0, 0, 0, 0, timezone.utc)
 EPOCH_NAIVE = datetime(1970, 1, 1, 0, 0, 0, 0)
@@ -186,9 +187,68 @@ def _to_set(expression):
 def _from_set(column, _set):
     values, sgn = _set
     if sgn == '+':
+        if len(values) == 0:
+            return False
         return In(column, values)
     else:
         return Not(In(column, values))
+
+
+def hook(obj, attribute):
+
+    if isinstance(obj, Or):
+
+        in_ = [cl for cl in obj.clauses if isinstance(cl, In)]
+        notin = [cl for cl in obj.clauses if isinstance(cl, Not)]
+        assert len(in_) + len(notin) == len(obj.clauses)
+
+        in_valueset = set() if len(in_) == 0 else functools.reduce(
+            lambda a, b: a.union(b),
+            (cl.valueset for cl in in_))
+        notin_valueset = set() if len(notin) == 0 else functools.reduce(
+            lambda a, b: a.intersection(b),
+            (cl.clause.valueset for cl in notin))
+
+        if len(notin) > 0:
+            final = notin_valueset - in_valueset
+            if len(final) == 0:
+                return True
+            return Not(In(attribute, final))
+        else:
+            if len(in_valueset) == 0:
+                return True
+            return In(attribute, in_valueset)
+
+    if isinstance(obj, And):
+
+        in_ = [cl for cl in obj.clauses if isinstance(cl, In)]
+        notin = [cl for cl in obj.clauses if isinstance(cl, Not)]
+        assert len(in_) + len(notin) == len(obj.clauses)
+
+        in_valueset = set() if len(in_) == 0 else functools.reduce(
+            lambda a, b: a.intersection(b),
+            (cl.valueset for cl in in_))
+        notin_valueset = set() if len(notin) == 0 else functools.reduce(
+            lambda a, b: a.union(b),
+            (cl.clause.valueset for cl in notin))
+
+        if len(in_) > 0:
+            final = in_valueset - notin_valueset
+            if len(final) == 0:
+                return False
+            return In(attribute, final)
+        else:
+            if len(notin_valueset) == 0:
+                return False
+            return Not(In(attribute, notin_valueset))
+
+    return obj
+
+
+def simplify_set_univariate(attribute, expression):
+    return convert_expression(expression, hook=functools.partial(
+        hook, attribute=attribute))
+    # return _from_set(attribute, _to_set(expression))
 
 
 def simplify_intervals_univariate(expression):
@@ -205,7 +265,7 @@ def simplify_intervals_univariate(expression):
     if 'in' in expression_types:
         if len(expression_types) > 1:
             raise SimplifyError('Cannot simplify combined discrete and continuous filters')
-        return _from_set(attribute, _to_set(expression))
+        return simplify_set_univariate(attribute, expression)
     # Check that types are consistent for continuous domains.
     constant_types = get_types(expression)
     if len(constant_types) == 0:

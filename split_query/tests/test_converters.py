@@ -4,7 +4,7 @@ import functools
 
 import pytest
 
-from converters import convert_expression, substitute_attributes, in_to_or, soql, map_to_ids
+from split_query.converters import convert_expression, substitute_attributes, in_to_or, soql, map_to_ids
 from split_query.expressions import And, Or, Not, In, Eq, Le, Lt, Ge, Gt, Attribute
 
 

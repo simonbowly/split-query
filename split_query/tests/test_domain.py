@@ -119,10 +119,57 @@ TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
     # Irreducible sets
     (In(STR, ['1', '2', '3']), In(STR, ['1', '2', '3'])),
     (Not(In(STR, ['1', '2'])), Not(In(STR, ['1', '2']))),
-    # Reducible sets
-    (Or([In(STR, ['1', '2']), In(STR, ['2', '3'])]), In(STR, ['1', '2', '3'])),
-    (And([In(STR, ['1', '2']), In(STR, ['2', '3'])]), In(STR, ['2'])),
-    (And([In(STR, ['1', '2']), Not(In(STR, ['2', '3']))]), In(STR, ['1'])),
+    # Reducible sets AND
+    (
+        And([In(STR, ['a']), In(STR, ['b'])]),
+        False),
+    (
+        And([Not(In(STR, ['a'])), Not(In(STR, ['b']))]),
+        Not(In(STR, ['a', 'b']))),
+    (
+        And([In(STR, ['1', '2']), In(STR, ['2', '3'])]),
+        In(STR, ['2'])),
+    (
+        And([Not(In(STR, ['1', '2'])), Not(In(STR, ['2', '3']))]),
+        Not(In(STR, ['1', '2', '3']))),
+    (
+        And([In(STR, ['1', '2']), Not(In(STR, ['2', '3']))]),
+        In(STR, ['1'])),
+    (
+        And([In(STR, ['a', 'b']), Not(In(STR, ['a', 'b']))]),
+        False),
+    (
+        And([In(X1, [28, 29]), Not(In(X1, [27])), Not(In(X1, [28]))]),
+        In(X1, [29])),
+    (
+        And([Not(In(X1, [27])), Not(In(X1, [28]))]),
+        Not(In(X1, [27, 28]))),
+    (
+        And([In(X1, [27]), In(X1, [28, 29]), Not(In(X1, [28]))]),
+        False),
+    # Reducible sets OR
+    (
+        Or([In(STR, ['a']), In(STR, ['b'])]),
+        In(STR, ['a', 'b'])),
+    (
+        Or([Not(In(STR, ['a'])), Not(In(STR, ['b']))]),
+        True),
+    (
+        Or([In(STR, ['1', '2']), In(STR, ['2', '3'])]),
+        In(STR, ['1', '2', '3'])),
+    (
+        Or([Not(In(STR, ['1', '2'])), Not(In(STR, ['2', '3']))]),
+        Not(In(STR, ['2']))),
+    (
+        Or([In(STR, ['1', '2']), Not(In(STR, ['2', '3']))]),
+        Not(In(STR, ['3']))),
+    (
+        Or([In(STR, ['a', 'b']), Not(In(STR, ['a', 'b']))]),
+        True),
+    # Edge cases
+    # (In(X1, []), False),
+    # (Or([In(X1, [])]), False),
+    # (And([In(X1, [])]), False),
 ]
 
 
