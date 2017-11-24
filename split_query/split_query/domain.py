@@ -150,57 +150,28 @@ def _from_interval(column, constant_type, interval):
         Lt(column, converter(interval.right)) if interval.right_open else Le(column, converter(interval.right))])
 
 
-def _reduce_set_and(expr1, expr2):
-    values1, sgn1 = expr1
-    values2, sgn2 = expr2
-    if sgn1 == '+' and sgn2 == '+':
-        return values1.intersection(values2), '+'
-    if sgn1 == '-' and sgn2 == '-':
-        raise ValueError('Invalid set reduction And(Not In, Not In)')
-    parts = (values1, values2) if sgn1 == '+' else (values2, values1)
-    return (parts[0] - parts[1]), '+'
-
-
-def _reduce_set_or(expr1, expr2):
-    values1, sgn1 = expr1
-    values2, sgn2 = expr2
-    if sgn1 == '+' and sgn2 == '+':
-        return values1.union(values2), '+'
-    raise ValueError('Invalid set reduction Or(~In, ~In)')
-
-
-def _to_set(expression):
-    if isinstance(expression, In):
-        return (expression.valueset, '+')
-    if isinstance(expression, And):
-        return functools.reduce(
-            _reduce_set_and, map(_to_set, expression.clauses))
-    if isinstance(expression, Or):
-        return functools.reduce(
-            _reduce_set_or, map(_to_set, expression.clauses))
-    if isinstance(expression, Not):
-        if isinstance(expression.clause, In):
-            return (expression.clause.valueset, '-')
-    raise ValueError('Unhandled expression in _to_set')
-
-
-def _from_set(column, _set):
-    values, sgn = _set
-    if sgn == '+':
-        if len(values) == 0:
-            return False
-        return In(column, values)
-    else:
-        return Not(In(column, values))
-
-
 def hook(obj, attribute):
+    ''' Some of the literal cases here should probably be dealt with
+    by running simplify_tree first. '''
+
+    if isinstance(obj, In) and len(obj.valueset) == 0:
+        return False
+
+    if isinstance(obj, Not) and obj.clause is False:
+        return True
 
     if isinstance(obj, Or):
 
-        in_ = [cl for cl in obj.clauses if isinstance(cl, In)]
-        notin = [cl for cl in obj.clauses if isinstance(cl, Not)]
-        assert len(in_) + len(notin) == len(obj.clauses)
+        clauses = obj.clauses
+        if any(cl is True for cl in clauses):
+            return True
+        if all(cl is False for cl in clauses):
+            return False
+        clauses = [cl for cl in clauses if cl is not False]
+
+        in_ = [cl for cl in clauses if isinstance(cl, In)]
+        notin = [cl for cl in clauses if isinstance(cl, Not)]
+        assert len(in_) + len(notin) == len(clauses)
 
         in_valueset = set() if len(in_) == 0 else functools.reduce(
             lambda a, b: a.union(b),
@@ -221,9 +192,16 @@ def hook(obj, attribute):
 
     if isinstance(obj, And):
 
-        in_ = [cl for cl in obj.clauses if isinstance(cl, In)]
-        notin = [cl for cl in obj.clauses if isinstance(cl, Not)]
-        assert len(in_) + len(notin) == len(obj.clauses)
+        clauses = obj.clauses
+        if any(cl is False for cl in clauses):
+            return False
+        if all(cl is True for cl in clauses):
+            return True
+        clauses = [cl for cl in clauses if cl is not True]
+
+        in_ = [cl for cl in clauses if isinstance(cl, In)]
+        notin = [cl for cl in clauses if isinstance(cl, Not)]
+        assert len(in_) + len(notin) == len(clauses)
 
         in_valueset = set() if len(in_) == 0 else functools.reduce(
             lambda a, b: a.intersection(b),

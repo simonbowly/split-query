@@ -166,10 +166,19 @@ TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
     (
         Or([In(STR, ['a', 'b']), Not(In(STR, ['a', 'b']))]),
         True),
-    # Edge cases
-    # (In(X1, []), False),
-    # (Or([In(X1, [])]), False),
-    # (And([In(X1, [])]), False),
+    # Edge cases and literals
+    (In(X1, []), False),
+    (Not(In(X1, [])), True),
+
+    (Or([Not(In(X1, []))]), True),
+    (Or([In(X1, [])]), False),
+    (Or([In(X1, ['1']), False]), In(X1, ['1'])),
+    (Or([In(X1, ['1']), True]), True),
+
+    (And([In(X1, [])]), False),
+    (And([Not(In(X1, []))]), True),
+    (And([In(X1, ['1']), False]), False),
+    (And([In(X1, ['1']), True]), In(X1, ['1'])),
 ]
 
 
