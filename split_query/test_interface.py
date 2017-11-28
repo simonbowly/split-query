@@ -48,6 +48,13 @@ def test_filter_eq(dataset):
 
 
 @filter_test
+def test_filter_eq_getitem(dataset):
+    return (
+        dataset[dataset['x'] == 4],
+        Eq(Attribute('x'), 4))
+
+
+@filter_test
 def test_filter_chained(dataset):
     return (
         dataset[dataset.x <= 1][dataset.z >= 0],
@@ -94,13 +101,13 @@ def test_dataset_repr(math_repr):
     # Backend only used for a record count estimate.
     backend = mock.Mock()
     backend.estimate_count.return_value = 15
+    # Takes the place of a returned dataframe. It will simply have its
+    # repr called to add to the end of the output string.
+    backend.mock_data = mock.Mock(return_value='MOCK_DF')
 
     attributes = [Attribute(n) for n in 'xyz']
     dataset = DataSet('Data', attributes, backend)
     dataset = dataset[dataset.x == 0]
-    # Takes the place of a returned dataframe. It will simply have its
-    # repr called to add to the end of the output string.
-    dataset.mock_data = mock.Mock(return_value='MOCK_DF')
 
     result = repr(dataset)
     math_repr.assert_called_once_with(Eq(Attribute('x'), 0))
@@ -113,32 +120,23 @@ def test_dataset_repr_html(math_repr):
     # Backend only used for a record count estimate.
     backend = mock.Mock()
     backend.estimate_count.return_value = 12
+    backend.mock_data = mock.Mock()
+    backend.mock_data()._repr_html_.return_value = 'mock_repr'
 
     attributes = [Attribute(n) for n in 'xyz']
-    dataset = DataSet('OtherData', attributes, backend)
+    dataset = DataSet('OtherData', attributes, backend, description='desc')
     dataset = dataset[dataset.y == 1]
     # Takes the place of a returned dataframe. It will simply have its
     # repr called to add to the end of the output string.
-    dataset.mock_data = mock.Mock()
-    dataset.mock_data()._repr_html_.return_value = 'mock_repr'
 
     result = dataset._repr_html_()
     math_repr.assert_called_once_with(Eq(Attribute('y'), 1))
     backend.estimate_count.assert_called_once_with(Eq(Attribute('y'), 1))
     assert result == (
         '<div><H3>OtherData</H3></div>' +
+        '<div>desc</div>' +
         '<br style="line-height: 0px" />' +
         '<div><b>Filter:</b> mathy</div>' +
         '<div><b>Records:</b> 12</div>' +
         '<br style="line-height: 0px" />' +
         '<div>Mock data:</div>mock_repr')
-
-
-def test_mock_data():
-    attributes = [Attribute(n) for n in 'xyz']
-    dataset = DataSet('OtherData', attributes, None)
-    mock_data = dataset.mock_data()
-    assert mock_data.to_dict() == dict(
-        x={0:0, 1:1, 2:2},
-        y={0:1, 1:2, 2:3},
-        z={0:2, 1:3, 2:4})

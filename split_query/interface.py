@@ -65,11 +65,12 @@ class DataSet(object):
     :backend has a query method returns the result of applying the current
     :expr to the target dataset. '''
 
-    def __init__(self, name, attributes, backend, expr=True):
+    def __init__(self, name, attributes, backend, expr=True, description=None):
         self.name = name
         self.attributes = {attr.name: attr for attr in attributes}
         self.backend = backend
         self.expr = expr
+        self.desc = description
 
     def __getattr__(self, attr):
         if attr in self.attributes:
@@ -77,18 +78,18 @@ class DataSet(object):
         raise AttributeError(ATTR_ERROR.format(self.__class__.__name__, attr))
 
     def __getitem__(self, expr):
-        return self.__class__(
-            name=self.name, backend=self.backend,
-            attributes=self.attributes.values(),
-            expr=simplify_tree(And([self.expr, expr._wrapped])))
+        if isinstance(expr, str) and expr in self.attributes:
+            return AttributeContainer(self.attributes[expr])
+        if isinstance(expr, ExpressionContainer):
+            return self.__class__(
+                name=self.name, backend=self.backend,
+                attributes=self.attributes.values(),
+                expr=simplify_tree(And([self.expr, expr._wrapped])),
+                description=self.desc)
+        raise ValueError('Not a valid thing to get!!')
 
-    def mock_data(self):
-        ''' Based on the types of attributes, return mock data. '''
-        return pd.DataFrame([
-            {
-                name: i + j for i, name
-                in enumerate(self.attributes)}
-            for j in range(3)])
+    def __dir__(self):
+        return list(self.attributes.keys()) + ['get']
 
     def __repr__(self):
         expr = self.expr
@@ -101,7 +102,7 @@ class DataSet(object):
             'Filter: {}\n'.format(math_repr(self.expr)) +
             'Records: {}\n'.format(record_count) +
             'Mock data:\n')
-        data = self.mock_data()
+        data = self.backend.mock_data()
         return header + repr(data)
 
     def _repr_html_(self):
@@ -112,12 +113,13 @@ class DataSet(object):
             record_count = -1
         header = (
             '<div><H3>{}</H3></div>'.format(self.name) +
+            ('' if self.desc is None else '<div>{}</div>'.format(self.desc)) +
             '<br style="line-height: 0px" />' +
             '<div><b>Filter:</b> {}</div>'.format(math_repr(expr)) +
             '<div><b>Records:</b> {}</div>'.format(record_count) +
             '<br style="line-height: 0px" />' +
             '<div>Mock data:</div>')
-        data = self.mock_data()
+        data = self.backend.mock_data()
         return header + data._repr_html_()
 
     def get(self):

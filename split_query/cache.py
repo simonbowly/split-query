@@ -48,6 +48,11 @@ class CachingBackend(object):
         # Assemble final result.
         return pd.concat(parts)
 
+    def mock_data(self):
+        return self.remote.mock_data()
+
+    def estimate_count(self, expr):
+        return self.remote.estimate_count(expr)
 
 
 # if cached_query == expression:
