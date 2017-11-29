@@ -5,10 +5,10 @@ import pytest
 from hypothesis import strategies as st
 from hypothesis import event, given
 
-from split_query.domain import (get_attributes, simplify_domain,
+from split_query.core.domain import (get_attributes, simplify_domain,
                                 simplify_intervals_univariate)
-from split_query.exceptions import SimplifyError
-from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+from split_query.core.exceptions import SimplifyError
+from split_query.core.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
                                      Not, Or)
 
 from .strategies import float_expressions

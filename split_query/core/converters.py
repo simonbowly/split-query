@@ -1,7 +1,7 @@
 
 from datetime import datetime
 
-from split_query.expressions import And, Or, Not, In, Eq, Le, Lt, Ge, Gt, Attribute
+from .expressions import And, Or, Not, In, Eq, Le, Lt, Ge, Gt, Attribute
 
 
 def convert_expression(obj, hook):

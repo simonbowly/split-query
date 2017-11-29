@@ -6,7 +6,7 @@ import hypothesis.strategies as st
 import pytest
 from hypothesis import given
 
-from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+from split_query.core.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
                                      Not, Or, math_repr, packb, unpackb)
 
 from .strategies import float_expressions

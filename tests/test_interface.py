@@ -4,8 +4,8 @@ from unittest import mock
 
 import pytest
 
-from interface import DataSet
-from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+from split_query.interface import DataSet
+from split_query.core.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
                                      Not, Or)
 
 
@@ -96,7 +96,7 @@ def test_filter_between(dataset):
         And([Ge(Attribute('x'), 1), Le(Attribute('x'), 3)]))
 
 
-@mock.patch('interface.math_repr', return_value='math')
+@mock.patch('split_query.interface.math_repr', return_value='math')
 def test_dataset_repr(math_repr):
     # Backend only used for a record count estimate.
     backend = mock.Mock()
@@ -115,7 +115,7 @@ def test_dataset_repr(math_repr):
     assert result == "Data\nFilter: math\nRecords: 15\nMock data:\n'MOCK_DF'"
 
 
-@mock.patch('interface.math_repr', return_value='mathy')
+@mock.patch('split_query.interface.math_repr', return_value='mathy')
 def test_dataset_repr_html(math_repr):
     # Backend only used for a record count estimate.
     backend = mock.Mock()

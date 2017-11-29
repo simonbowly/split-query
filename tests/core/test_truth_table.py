@@ -4,8 +4,8 @@ from frozendict import frozendict
 from hypothesis import strategies as st
 from hypothesis import assume, event, given
 
-from split_query.expressions import And, Not, Or
-from split_query.truth_table import (expand_dnf, get_clauses, substitute,
+from split_query.core.expressions import And, Not, Or
+from split_query.core.truth_table import (expand_dnf, get_clauses, substitute,
                                      truth_table)
 
 from .strategies import expressions, float_expressions

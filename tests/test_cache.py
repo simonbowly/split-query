@@ -5,10 +5,10 @@ from unittest import mock
 import pandas as pd
 import pytest
 
-from cache import CachingBackend
-from split_query.expressions import And, Or, Not, Le, Lt, Ge, Gt, Attribute
-from engine import query_df
-from split_query.converters import convert_expression
+from split_query.cache import CachingBackend
+from split_query.core.expressions import And, Or, Not, Le, Lt, Ge, Gt, Attribute
+from split_query.engine import query_df
+from split_query.core.converters import convert_expression
 
 
 _data = itertools.product(range(5), repeat=2)

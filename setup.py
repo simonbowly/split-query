@@ -3,7 +3,7 @@ from setuptools import setup, find_packages, Extension
 
 
 setup(
-    name='octo_spork',
+    name='split-query',
     version='0.1.0',
     description='',
     url='',
@@ -13,6 +13,6 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3'],
-    packages=find_packages(where='.', include=['octo_spork']),
+    packages=find_packages(where='.', include=['split_query']),
     install_requires=[],
     extras_require={})

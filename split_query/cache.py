@@ -3,11 +3,11 @@ import logging
 
 import pandas as pd
 
-from split_query.expressions import And, Not
-from split_query.domain import simplify_domain
-from split_query.truth_table import expand_dnf
-from split_query.simplify import simplify_tree
-from engine import query_df
+from .core.expressions import And, Not
+from .core.domain import simplify_domain
+from .core.truth_table import expand_dnf
+from .core.simplify import simplify_tree
+from .engine import query_df
 
 
 def simplify(expression):

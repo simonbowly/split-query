@@ -1,8 +1,8 @@
 
 import itertools
 
-from split_query.expressions import And, Not, Or
-from split_query.simplify import simplify_tree
+from .expressions import And, Not, Or
+from .simplify import simplify_tree
 
 
 def get_clauses(expression):

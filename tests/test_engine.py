@@ -7,13 +7,13 @@ import pandas as pd
 import pytest
 from hypothesis import assume, event, given
 
-from engine import query_df
-from split_query.domain import simplify_domain
-from split_query.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
+from split_query.engine import query_df
+from split_query.core.domain import simplify_domain
+from split_query.core.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
                                      Not, Or)
-from split_query.simplify import simplify_tree
-from split_query.truth_table import expand_dnf, get_clauses
-from tests.strategies import float_expressions
+from split_query.core.simplify import simplify_tree
+from split_query.core.truth_table import expand_dnf, get_clauses
+from .core.strategies import float_expressions
 
 x, y, z = [Attribute(n) for n in 'xyz']
 dtx = Attribute('dtx')

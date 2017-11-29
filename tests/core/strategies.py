@@ -2,7 +2,7 @@
 from hypothesis import strategies as st
 from hypothesis import given
 
-from split_query.expressions import And, Attribute, Eq, Ge, Gt, Le, Lt, Not, Or
+from split_query.core.expressions import And, Attribute, Eq, Ge, Gt, Le, Lt, Not, Or
 
 
 def attributes(dtype, names):

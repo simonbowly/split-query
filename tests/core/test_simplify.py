@@ -3,8 +3,8 @@ import pytest
 from hypothesis import strategies as st
 from hypothesis import assume, event, given
 
-from split_query.expressions import And, Not, Or
-from split_query.simplify import simplify_tree
+from split_query.core.expressions import And, Not, Or
+from split_query.core.simplify import simplify_tree
 
 from .strategies import expressions, float_expressions
 
