@@ -1,42 +1,53 @@
+''' This is a set of fixed test cases for simplify_tree and simplify_domain.
+
+These testcases may be redundant. Simple fuzz tests check for basic guarantees
+and errors, while correctness tests on mock data can validate that simplified
+queries produce the same result. However, these lists are potentially useful to
+document expected behaviour. They're also faster, so nice for refactoring.
+
+    TESTCASES_SIMPLIFY_TREE         -> Input/output for simplify_tree()
+    TESTCASES_SIMPLIFY_DOMAIN       -> Input/output for simplify_domain()
+    TESTCASES_SIMPLIFY_DOMAIN_ERROR -> Error cases for simplify_domain()
+
+'''
 
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from hypothesis import strategies as st
-from hypothesis import event, given
 
-from split_query.core.domain import (get_attributes, simplify_domain,
-                                simplify_intervals_univariate)
-from split_query.core.exceptions import SimplifyError
-from split_query.core.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
-                                     Not, Or)
+from split_query.core import (
+    And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or,
+    simplify_domain, simplify_tree, SimplifyError)
 
-from .strategies import float_expressions
 
-TESTCASES_GET_ATTRIBUTES = [
-    (Gt(Attribute('col1'), 1), {Attribute('col1')}),
-    (Ge(Attribute('col2'), 1), {Attribute('col2')}),
-    (Lt(Attribute('col3'), 1), {Attribute('col3')}),
-    (Le(Attribute('col4'), 1), {Attribute('col4')}),
-    (Not(Le(Attribute('col5'), 1)), {Attribute('col5')}),
-    (
-        And([Ge(Attribute('col6'), 3), Le(Attribute('col7'), 4)]),
-        {Attribute('col6'), Attribute('col7')}),
-    (
-        And([Ge(Attribute('col8'), 3), Le(Attribute('col9'), 4)]),
-        {Attribute('col8'), Attribute('col9')}),
-    # (
-    #     And([Eq(DateTime('x'), 1), Eq(Attribute('x'), 1)]),
-    #     {DateTime('x'), Attribute('x')}),
-    (True, set()),
-    (False, set()),
-    (In(Attribute('s1'), [1, 2, 3]), {Attribute('s1')}),
+TESTCASES_SIMPLIFY_TREE = [
+    # Unsimplifiable
+    (And(['a', 'b']),               And(['a', 'b'])),
+    (And([Or(['a', 'b']), 'c']),    And([Or(['a', 'b']), 'c'])),
+    (Or([And(['a', 'b']), 'c']),    Or([And(['a', 'b']), 'c'])),
+    # Flattenable
+    (And([And(['a', 'b']), 'c']),   And(['a', 'b', 'c'])),
+    (Or([Or(['a', 'b']), 'c']),     Or(['a', 'b', 'c'])),
+    # Redundant expressions
+    (And(['a']),                    'a'),
+    (Or(['b']),                     'b'),
+    (Not(And(['a'])),               Not('a')),
+    (Not(Or(['b'])),                Not('b')),
+    # Dominant literals
+    (And([True, False]),            False),
+    (Or([True, False]),             True),
+    (And(['a', False]),             False),
+    (Or([True, 'b']),               True),
+    # Redundant literals
+    (And(['a', 'b', True]),         And(['a', 'b'])),
+    (Or(['a', 'b', False]),         Or(['a', 'b'])),
+    # Fuzzed edge cases
+    (And([True]),                   True),
+    (Or([False]),                   False),
+    # Negations
+    (Not(True),                     False),
+    (Not(False),                    True),
 ]
-
-
-@pytest.mark.parametrize('expression, columns', TESTCASES_GET_ATTRIBUTES)
-def test_get_attributes(expression, columns):
-    assert get_attributes(expression) == columns
 
 
 X1 = Attribute('x1')
@@ -48,7 +59,19 @@ DAY = timedelta(days=1)
 STR = Attribute('x')
 
 
-TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
+TESTCASES_SIMPLIFY_DOMAIN_ERROR = [
+    # Mixed type filters on same variable.
+    And([Gt(DT1, 2), Lt(DT1, DTBASE + DAY * 5)]),
+    # Timezone-naive and aware datetimes.
+    And([
+        Lt(X1, DTBASE + DAY * 5),
+        Lt(X1, datetime(2016, 1, 1, 0, 0, 0))]),
+    # Mixed discrete and continuous filters.
+    And([In(X1, [1, 2, 3]), Gt(X1, 2)]),
+]
+
+
+TESTCASES_SIMPLIFY_DOMAIN = [
     # Simple interval and set expressions are not altered.
     (Ge(X1, 1), Ge(X1, 1)),
     (Gt(X1, 2), Gt(X1, 2)),
@@ -179,58 +202,6 @@ TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE = [
     (And([Not(In(X1, []))]), True),
     (And([In(X1, ['1']), False]), False),
     (And([In(X1, ['1']), True]), In(X1, ['1'])),
-]
-
-
-@pytest.mark.parametrize('expression, result', TESTCASES_SIMPLIFY_INTERVALS_UNIVARIATE)
-def test_simplify_intervals_univariate(expression, result):
-    assert simplify_intervals_univariate(expression) == result
-
-
-@pytest.mark.parametrize('expression', [
-    # Attempting to simplify multivariate.
-    And([Lt(X1, 1), Lt(X2, 2)]),
-    # No variables in expression.
-    True,
-    Or([True, False]),
-    # Mixed type filters on same variable.
-    And([Gt(DT1, 2), Lt(DT1, DTBASE + DAY * 5)]),
-    # Timezone-naive and aware datetimes.
-    And([
-        Lt(X1, DTBASE + DAY * 5),
-        Lt(X1, datetime(2016, 1, 1, 0, 0, 0))]),
-    # Mixed discrete and continuous filters.
-    And([In(X1, [1, 2, 3]), Gt(X1, 2)]),
-    ])
-def test_simplify_intervals_univariate_error(expression):
-    ''' Errors should be raised when using interval simplification
-    on more than one dimension. '''
-    with pytest.raises(SimplifyError):
-        simplify_intervals_univariate(expression)
-
-
-@given(float_expressions('xy'))
-def test_simplify_intervals_univariate_fuzz(expression):
-    ''' Fuzz test, checking complicated expressions defined by this strategy
-    do not cause errors in domain conversion. Checks that an error is raised
-    in multivariate cases. '''
-    n_vars = len(get_attributes(expression))
-    event('variables: {}'.format(n_vars))
-    if n_vars == 0:
-        with pytest.raises(SimplifyError):
-            simplify_intervals_univariate(expression)
-    elif n_vars == 1:
-        # Domain simplifier should handle any univariate case.
-        simplify_intervals_univariate(expression)
-    elif n_vars == 2:
-        # Expect error in multivariate cases.
-        with pytest.raises(SimplifyError):
-            simplify_intervals_univariate(expression)
-    else:
-        raise ValueError('Strategy produced unexpected result.')
-
-
-TESTCASES_SIMPLIFY_DOMAIN = [
     # Boring bits
     (True, True),
     (False, False),
@@ -264,16 +235,51 @@ TESTCASES_SIMPLIFY_DOMAIN = [
     (
         Not(Or([Ge(X1, 1), Ge(X1, 2), And([Le(X2, 1), Le(X2, 2)])])),
         Not(Or([Ge(X1, 1), Le(X2, 1)]))),
+    # Testcases from simplify_tree
+    # Unsimplifiable
+    (And([Ge(X1, 1), Ge(X2, 1)]),                       And([Ge(X1, 1), Ge(X2, 1)])),
+    (And([Or([Ge(X1, 1), Ge(X2, 1)]), Eq(DT1, 1)]),     And([Or([Ge(X1, 1), Ge(X2, 1)]), Eq(DT1, 1)])),
+    (Or([And([Ge(X1, 1), Ge(X2, 1)]), Eq(DT1, 1)]),     Or([And([Ge(X1, 1), Ge(X2, 1)]), Eq(DT1, 1)])),
+    # Flattenable
+    (And([And([Ge(X1, 1), Ge(X2, 1)]), Eq(DT1, 1)]),    And([Ge(X1, 1), Ge(X2, 1), Eq(DT1, 1)])),
+    (Or([Or([Ge(X1, 1), Ge(X2, 1)]), Eq(DT1, 1)]),      Or([Ge(X1, 1), Ge(X2, 1), Eq(DT1, 1)])),
+    # Redundant expressions
+    (And([Ge(X1, 1)]),                      Ge(X1, 1)),
+    (Or([Ge(X2, 1)]),                       Ge(X2, 1)),
+    (Not(And([Ge(X1, 1)])),                 Lt(X1, 1)),
+    (Not(Or([Ge(X2, 1)])),                  Lt(X2, 1)),
+    # Dominant literals
+    (And([True, False]),                    False),
+    (Or([True, False]),                     True),
+    (And([Ge(X1, 1), False]),               False),
+    (Or([True, Ge(X2, 1)]),                 True),
+    # Redundant literals
+    (And([Ge(X1, 1), Ge(X2, 1), True]),     And([Ge(X1, 1), Ge(X2, 1)])),
+    (Or([Ge(X1, 1), Ge(X2, 1), False]),     Or([Ge(X1, 1), Ge(X2, 1)])),
+    # Fuzzed edge cases
+    (And([True]),                           True),
+    (Or([False]),                           False),
+    # Negations
+    (Not(True),                             False),
+    (Not(False),                            True),
 ]
+
+
+@pytest.mark.parametrize('expression, expected', TESTCASES_SIMPLIFY_TREE)
+def test_simplify_tree(expression, expected):
+    ''' Fixed tests for minimum capability of this simplifier. '''
+    # traverse_expression(expression, hook=assertion_hook)  # Fails
+    assert simplify_tree(expression) == expected
 
 
 @pytest.mark.parametrize('expression, result', TESTCASES_SIMPLIFY_DOMAIN)
 def test_simplify_domain(expression, result):
+    ''' Exact tests of cases that should be simplified successfully. '''
     assert simplify_domain(expression) == result
 
 
-@given(float_expressions('xyz'))
-def test_simplify_domain_fuzz(expression):
-    n_vars = len(get_attributes(expression))
-    event('variables: {}'.format(n_vars))
-    simplify_domain(expression)
+@pytest.mark.parametrize('expression', TESTCASES_SIMPLIFY_DOMAIN_ERROR)
+def test_simplify_domain_error(expression):
+    ''' Known error cases. '''
+    with pytest.raises(SimplifyError):
+        simplify_domain(expression)

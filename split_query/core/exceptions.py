@@ -1,3 +1,0 @@
-
-class SimplifyError(Exception):
-    pass

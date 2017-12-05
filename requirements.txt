@@ -2,3 +2,4 @@ frozendict
 iso8601
 msgpack-python
 sympy
+pandas

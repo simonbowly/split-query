@@ -3,20 +3,7 @@ import itertools
 
 from .expressions import And, Not, Or
 from .simplify import simplify_tree
-
-
-def get_clauses(expression):
-    ''' Need to fix terminology: extracts the set of things in the expression
-    which are not And/Or/Not. i.e. they may take on T/F values directly as a
-    result of checking a data point. '''
-    if isinstance(expression, And) or isinstance(expression, Or):
-        return set(itertools.chain(*(
-            get_clauses(cl) for cl in expression.clauses)))
-    if isinstance(expression, Not):
-        return get_clauses(expression.clause)
-    if expression is True or expression is False:
-        return set()
-    return {expression}
+from .traverse import get_clauses
 
 
 def substitute(expression, assignments):
@@ -56,9 +43,9 @@ def expand_dnf(expression):
         return True
     if all(result is False for _, result in _truth_table):
         return False
-    return Or(
+    return simplify_tree(Or(
         And((
             clause if truth else Not(clause)
             for clause, truth in assignment.items()))
         for assignment, result in _truth_table
-        if result is True)
+        if result is True))

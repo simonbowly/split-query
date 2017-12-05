@@ -3,14 +3,12 @@ import logging
 
 import pandas as pd
 
-from .core.expressions import And, Not
-from .core.domain import simplify_domain
-from .core.truth_table import expand_dnf
-from .core.simplify import simplify_tree
+from .core import And, Not, expand_dnf, simplify_domain, simplify_tree
 from .engine import query_df
 
 
 def simplify(expression):
+    ''' Complete simplification (guarantees reaching False if possible). '''
     try:
         return simplify_tree(simplify_domain(expand_dnf(expression)))
     except:
@@ -20,13 +18,14 @@ def simplify(expression):
 
 class CachingBackend(object):
     ''' Cache implementation that uses cached data as much as possible
-    (minimal download policy). '''
+    (minimal download policy). Uses a simple iterative algorithm, subtracting
+    each cached dataset in sequence from the required data. '''
 
     def __init__(self, remote):
         self.remote = remote
         self.cache = []
 
-    def query(self, expression):
+    def get(self, expression):
         ''' Sequentially eliminates parts of the input query with overlapping
         data from the cache. Queries the remote for any missing entries. '''
         parts = []
@@ -42,17 +41,11 @@ class CachingBackend(object):
                 break
         else:
             # No break: there is missing data to be retrieved from remote.
-            actual, data = self.remote.query(expression)
+            actual, data = self.remote.get(expression)
             self.cache.append((actual, data))
             parts.append(query_df(data, expression))
         # Assemble final result.
         return pd.concat(parts)
-
-    def mock_data(self):
-        return self.remote.mock_data()
-
-    def estimate_count(self, expr):
-        return self.remote.estimate_count(expr)
 
 
 # if cached_query == expression:

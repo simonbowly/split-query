@@ -1,3 +1,4 @@
+''' Tests of the pandas-like interface object, functioning as API guarantees. '''
 
 import itertools
 from unittest import mock
@@ -13,23 +14,22 @@ def filter_test(test_func):
     ''' Decorates a test function to supply it with a clean DataSet object,
     inject mock backend and assert query result. The decorated function should
     return the new dataset object created by the filter, and the expected
-    expression. This approach allows the tests to simply express the
-    relationship between the API and the query call. '''
+    expression to be passed to the backend. The tests then simply expression
+    the relationship betwen the API and the resulting query expression. '''
     def _func():
         backend = mock.Mock()
-        attributes = [Attribute(n) for n in 'xyz'] + [Attribute('s')]
-        dataset = DataSet('Data', attributes, backend)
+        dataset = DataSet('Data', list('xyzs'), backend)
         # Filtered is a new DataSet. get() executes the query on the backend.
         filtered, expression = test_func(dataset)
         result = filtered.get()
         # Check query received correct expression, result is query output.
-        backend.query.assert_called_once_with(expression)
-        assert result == backend.query()
+        backend.get.assert_called_once_with(expression)
+        assert result == backend.get()
         # Check that the original dataset object was not changed.
         backend.reset_mock()
         result = dataset.get()
-        backend.query.assert_called_once_with(True)
-        assert result == backend.query()
+        backend.get.assert_called_once_with(True)
+        assert result == backend.get()
     return _func
 
 
@@ -94,49 +94,3 @@ def test_filter_between(dataset):
     return (
         dataset[dataset.x.between(1, 3)],
         And([Ge(Attribute('x'), 1), Le(Attribute('x'), 3)]))
-
-
-@mock.patch('split_query.interface.math_repr', return_value='math')
-def test_dataset_repr(math_repr):
-    # Backend only used for a record count estimate.
-    backend = mock.Mock()
-    backend.estimate_count.return_value = 15
-    # Takes the place of a returned dataframe. It will simply have its
-    # repr called to add to the end of the output string.
-    backend.mock_data = mock.Mock(return_value='MOCK_DF')
-
-    attributes = [Attribute(n) for n in 'xyz']
-    dataset = DataSet('Data', attributes, backend)
-    dataset = dataset[dataset.x == 0]
-
-    result = repr(dataset)
-    math_repr.assert_called_once_with(Eq(Attribute('x'), 0))
-    backend.estimate_count.assert_called_once_with(Eq(Attribute('x'), 0))
-    assert result == "Data\nFilter: math\nRecords: 15\nMock data:\n'MOCK_DF'"
-
-
-@mock.patch('split_query.interface.math_repr', return_value='mathy')
-def test_dataset_repr_html(math_repr):
-    # Backend only used for a record count estimate.
-    backend = mock.Mock()
-    backend.estimate_count.return_value = 12
-    backend.mock_data = mock.Mock()
-    backend.mock_data()._repr_html_.return_value = 'mock_repr'
-
-    attributes = [Attribute(n) for n in 'xyz']
-    dataset = DataSet('OtherData', attributes, backend, description='desc')
-    dataset = dataset[dataset.y == 1]
-    # Takes the place of a returned dataframe. It will simply have its
-    # repr called to add to the end of the output string.
-
-    result = dataset._repr_html_()
-    math_repr.assert_called_once_with(Eq(Attribute('y'), 1))
-    backend.estimate_count.assert_called_once_with(Eq(Attribute('y'), 1))
-    assert result == (
-        '<div><H3>OtherData</H3></div>' +
-        '<div>desc</div>' +
-        '<br style="line-height: 0px" />' +
-        '<div><b>Filter:</b> mathy</div>' +
-        '<div><b>Records:</b> 12</div>' +
-        '<br style="line-height: 0px" />' +
-        '<div>Mock data:</div>mock_repr')

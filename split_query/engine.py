@@ -8,8 +8,7 @@ from .core.expressions import And, Eq, Ge, Gt, In, Le, Lt, Not, Or
 
 def map_query_df(df, query):
     ''' Pandas engine implementation applying a query to a dataframe.
-    Returns an index on the dataframe.
-    TODO implement NOT and test things. '''
+    Returns an index on the dataframe. '''
     if isinstance(query, bool):
         return pd.Series(index=df.index, data=query)
     if isinstance(query, Eq):
