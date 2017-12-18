@@ -11,12 +11,14 @@ This test is implementation specific too: not all caches must be minimal.
 '''
 
 import itertools
+import os
+import tempfile
 from unittest import mock
 
 import pandas as pd
 import pytest
 
-from split_query.cache import CachingBackend
+from split_query.cache import CachingBackend, PersistentBackend
 from split_query.core.expressions import And, Or, Not, Le, Lt, Ge, Gt, Attribute
 from split_query.engine import query_df
 
@@ -81,8 +83,7 @@ TESTCASES_SEQUENCE = [
         (True, None),
         ]),
     # Overzealous remote (returns all data).
-    # Cache should keep all data (no middle layer) and do its own
-    # filtering.
+    # Cache should keep all data (no middle layer) and do its own filtering.
     (lambda expr: (True, source_query(True)), [
         (Le(X, 2), Le(X, 2)),
         (Le(X, 3), None),
@@ -90,8 +91,14 @@ TESTCASES_SEQUENCE = [
 ]
 
 
+def create_persistent(remote):
+    shelf = tempfile.mktemp()
+    return PersistentBackend(remote, location=shelf)
+
+
+@pytest.mark.parametrize('cls', [CachingBackend, create_persistent])
 @pytest.mark.parametrize('remote_query, sequence', TESTCASES_SEQUENCE)
-def test_minimal_download(remote_query, sequence):
+def test_minimal_download(cls, remote_query, sequence):
     ''' Any cache claiming to minimise the amount of data downloaded should
     satsify these tests for result correctness and remote calls. '''
     remote = mock.Mock()
@@ -99,7 +106,7 @@ def test_minimal_download(remote_query, sequence):
         remote.get.side_effect = lambda expr: (expr, source_query(expr))
     else:
         remote.get.side_effect = remote_query
-    backend = CachingBackend(remote)
+    backend = cls(remote)
     # Test sequence: run each query to the backend, check that the remote
     # is passed the correct query based on current cache state. Check that
     # the resulting data matches the correct query result. Reset the mock
