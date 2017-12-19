@@ -1,9 +1,9 @@
 ''' Tests of the pandas-like interface object, functioning as API guarantees. '''
 
 import itertools
-from unittest import mock
 
 import pytest
+import mock
 
 from split_query.interface import DataSet
 from split_query.core.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,

@@ -2,14 +2,15 @@
 import collections
 import functools
 import itertools
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
+import pytz
 import sympy as sp
 
 from .expressions import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or
 from .traverse import get_attributes, traverse_expression
 
-EPOCH = datetime(1970, 1, 1, 0, 0, 0, 0, timezone.utc)
+EPOCH = datetime(1970, 1, 1, 0, 0, 0, 0, pytz.utc)
 EPOCH_NAIVE = datetime(1970, 1, 1, 0, 0, 0, 0)
 
 

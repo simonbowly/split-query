@@ -1,10 +1,10 @@
 
-from datetime import timezone
 import itertools
 from string import ascii_letters, printable
 
 from hypothesis import strategies as st
 from hypothesis.searchstrategy.recursive import RecursiveStrategy
+import pytz
 
 from split_query.core.expressions import (
     Attribute, And, Or, Not, Eq, Le, Lt, Ge, Gt, Eq, In)
@@ -75,7 +75,7 @@ def continuous_numeric_relation(name):
 def datetime_relation(name):
     ''' Datetime relations on the given attribute name. '''
     attr = Attribute(name)
-    values = st.datetimes(timezones=st.just(timezone.utc))
+    values = st.datetimes(timezones=st.just(pytz.utc))
     return st.one_of([
         values.map(lambda val: Eq(attr, val)),
         values.map(lambda val: Le(attr, val)),

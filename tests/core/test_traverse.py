@@ -1,8 +1,7 @@
 ''' Test the generic traversal method and functions which return information
 about an expression by traversal. '''
 
-from unittest import mock
-
+import mock
 import pytest
 
 from split_query.core import (

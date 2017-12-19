@@ -2,10 +2,11 @@
 satisfied by eveny engine implementation. '''
 
 import itertools
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import pandas as pd
 import pytest
+import pytz
 
 from split_query.engine import query_df
 from split_query.core.expressions import (
@@ -16,7 +17,7 @@ x, y = [Attribute(n) for n in 'xy']
 dtx = Attribute('dtx')
 point = Attribute('point')
 
-DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, timezone.utc)
+DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, pytz.utc)
 DAY = timedelta(days=1)
 
 _data = itertools.product(range(5), repeat=2)

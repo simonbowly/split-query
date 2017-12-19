@@ -13,8 +13,8 @@ This test is implementation specific too: not all caches must be minimal.
 import itertools
 import os
 import tempfile
-from unittest import mock
 
+import mock
 import pandas as pd
 import pytest
 

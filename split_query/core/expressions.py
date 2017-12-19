@@ -1,5 +1,7 @@
 ''' Library of immutable objects used to describe the content of a query. '''
 
+from builtins import super
+
 import frozendict
 
 

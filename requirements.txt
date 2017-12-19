@@ -1,6 +1,8 @@
 frozendict
+future
 iso8601
 msgpack-python
-sympy
 pandas
+pytz
+sympy
 tables

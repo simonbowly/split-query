@@ -11,9 +11,10 @@ document expected behaviour. They're also faster, so nice for refactoring.
 
 '''
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import pytest
+import pytz
 
 from split_query.core import (
     And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or,
@@ -54,7 +55,7 @@ X1 = Attribute('x1')
 X2 = Attribute('x2')
 DT1 = Attribute('dt1')
 DT2 = Attribute('dt2')
-DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, timezone.utc)
+DTBASE = datetime(2017, 1, 2, 3, 0, 0, 0, pytz.utc)
 DAY = timedelta(days=1)
 STR = Attribute('x')
 
