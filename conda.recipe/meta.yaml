@@ -1,0 +1,57 @@
+{% set name = "split-query" %}
+{% set version = "0.1.0" %}
+{% set file_ext = "tar.gz" %}
+{% set hash_type = "sha256" %}
+{% set hash_value = "e0a574443be98a487b91f1d009b0d06723225bd2604f7bc666c4001340900d79" %}
+
+package:
+  name: '{{ name|lower }}'
+  version: '{{ version }}'
+
+source:
+  fn: '{{ name }}-{{ version }}.{{ file_ext }}'
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.{{ file_ext }}
+  '{{ hash_type }}': '{{ hash_value }}'
+
+build:
+  noarch: python
+  number: 0
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+
+requirements:
+  build:
+    - python
+  run:
+    - python
+    - frozendict        # Requires conda-forge channel.
+    - future
+    - iso8601
+    - msgpack-python
+    - pandas
+    - pytables          # Named tables on PyPI and for import.
+    - pytz
+    - sympy
+
+test:
+  imports:
+    - split_query
+    - split_query.core
+
+about:
+  home: https://github.com/simonbowly/split-query
+  license: MIT License
+  license_family: MIT
+  license_file: LICENSE
+  summary: Tools for breaking up queries for caching, processing, etc.
+  description: 'Split-Query
+
+    ================
+
+
+    Tools for breaking up queries for caching, processing, etc.'
+  doc_url: ''
+  dev_url: https://github.com/simonbowly/split-query
+
+extra:
+  recipe-maintainers:
+    - simonbowly
