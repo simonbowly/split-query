@@ -9,9 +9,8 @@ import uuid
 
 import pandas as pd
 
-from .core import (
-    And, Not, expand_dnf, simplify_domain, simplify_tree,
-    default, object_hook)
+from .core import (And, Not, expand_dnf, simplify_domain, simplify_tree,
+                   default, object_hook)
 from .engine import query_df
 
 
@@ -29,14 +28,15 @@ class MinimalCache(object):
     (minimal download policy). Uses a simple iterative algorithm, subtracting
     each cached dataset in sequence from the required data. '''
 
-    def __init__(self, remote):
+    def __init__(self, remote, cache):
         self.remote = remote
+        self.cache = cache
 
     def get(self, expression):
         ''' Sequentially eliminates parts of the input query with overlapping
         data from the cache. Queries the remote for any missing entries. '''
         parts = []
-        for cached_query, cached_data in self.cache_iter():
+        for cached_query, cached_data in self.cache.items():
             # If the cache element overlaps the current expression, add it
             # to the partial data and replace expression with remainder.
             intersection = simplify(And([expression, cached_query]))
@@ -49,33 +49,21 @@ class MinimalCache(object):
         else:
             # No break: there is missing data to be retrieved from remote.
             actual, data = self.remote.get(expression)
-            self.cache_add(actual, data)
+            self.cache[actual] = data
             parts.append(query_df(data, expression))
         # Assemble final result.
         return pd.concat(parts)
 
 
-class CachingBackend(MinimalCache):
+class PersistentDict(object):
+    ''' dict-like interface which keeps a contents file using shelve and
+    writes data using hdf5. '''
 
-    def __init__(self, remote):
-        super().__init__(remote)
-        self._cache = []
-
-    def cache_iter(self):
-        return iter(self._cache)
-
-    def cache_add(self, expr, data):
-        self._cache.append((expr, data))
-
-
-class PersistentBackend(MinimalCache):
-
-    def __init__(self, remote, location):
-        super().__init__(remote)
+    def __init__(self, location):
         self.location = location
         self.contents_file = os.path.join(self.location, 'contents')
 
-    def cache_iter(self):
+    def items(self):
         if not os.path.exists(self.location):
             os.makedirs(self.location)
         shelf = shelve.open(self.contents_file)
@@ -85,7 +73,7 @@ class PersistentBackend(MinimalCache):
             yield expr, value
         shelf.close()
 
-    def cache_add(self, expr, data):
+    def __setitem__(self, expr, data):
         if not os.path.exists(self.location):
             os.makedirs(self.location)
         shelf = shelve.open(self.contents_file)
@@ -94,6 +82,14 @@ class PersistentBackend(MinimalCache):
         shelf[key] = data_id
         data.to_hdf(os.path.join(self.location, data_id), key='main', complevel=3)
         shelf.close()
+
+
+def minimal_cache_inmemory(remote):
+    return MinimalCache(remote, dict())
+
+
+def minimal_cache_persistent(remote, location):
+    return MinimalCache(remote, PersistentDict(location))
 
 
 # if cached_query == expression:

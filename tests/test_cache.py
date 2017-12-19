@@ -18,7 +18,7 @@ import mock
 import pandas as pd
 import pytest
 
-from split_query.cache import CachingBackend, PersistentBackend
+from split_query.cache import minimal_cache_inmemory, minimal_cache_persistent
 from split_query.core.expressions import And, Or, Not, Le, Lt, Ge, Gt, Attribute
 from split_query.engine import query_df
 
@@ -93,10 +93,10 @@ TESTCASES_SEQUENCE = [
 
 def create_persistent(remote):
     shelf = tempfile.mktemp()
-    return PersistentBackend(remote, location=shelf)
+    return minimal_cache_persistent(remote, location=shelf)
 
 
-@pytest.mark.parametrize('cls', [CachingBackend, create_persistent])
+@pytest.mark.parametrize('cls', [minimal_cache_inmemory, create_persistent])
 @pytest.mark.parametrize('remote_query, sequence', TESTCASES_SEQUENCE)
 def test_minimal_download(cls, remote_query, sequence):
     ''' Any cache claiming to minimise the amount of data downloaded should
