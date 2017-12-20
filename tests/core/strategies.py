@@ -72,10 +72,12 @@ def continuous_numeric_relation(name):
     ])
 
 
-def datetime_relation(name):
+def datetime_relation(name, timezones=None):
     ''' Datetime relations on the given attribute name. '''
     attr = Attribute(name)
-    values = st.datetimes(timezones=st.just(pytz.utc))
+    values = (
+        st.datetimes() if timezones is None
+        else st.datetimes(timezones=timezones))
     return st.one_of([
         values.map(lambda val: Eq(attr, val)),
         values.map(lambda val: Le(attr, val)),
@@ -104,5 +106,6 @@ def structured_3d_expressions(max_leaves=100):
     relations = st.one_of(
         continuous_numeric_relation('x'),
         discrete_relation('id'),
-        datetime_relation('name'))
+        datetime_relation('dt'),
+        datetime_relation('dt-tz', timezones=st.just(pytz.utc)))
     return expression_recursive(relations, max_leaves=max_leaves)

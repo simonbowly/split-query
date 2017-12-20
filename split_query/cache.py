@@ -10,7 +10,7 @@ import uuid
 
 import pandas as pd
 
-from .core import (And, Not, expand_dnf, simplify_domain, simplify_tree,
+from .core import (And, Or, Not, expand_dnf, simplify_domain, simplify_tree,
                    default, object_hook)
 from .engine import query_df
 
@@ -50,11 +50,25 @@ class MinimalCache(object):
                 break
         else:
             # No break: there is missing data to be retrieved from remote.
-            actual, data = self.remote.get(expression)
-            self.cache[actual] = data
-            plan.append((actual, expression))
-            expression = simplify(And([expression, Not(actual)]))
-            assert expression is False          # TODO query not satisfied.
+            remote_result = self.remote.get(expression)
+            # Response should be a single (query, data) tuple of an iterable
+            # of the entries matching that spec.
+            if isinstance(remote_result, tuple):
+                assert len(remote_result) == 2
+                remote_result = [remote_result]
+            # Continues the query planning process as above, while writing
+            # new data to the cache.
+            for remote_query, remote_data in remote_result:
+                # Input new data, add to the plan if useful.
+                assert remote_query not in self.cache.keys()
+                self.cache[remote_query] = remote_data
+                intersection = simplify(And([expression, remote_query]))
+                if intersection is not False:
+                    plan.append((remote_query, expression))
+                    expression = simplify(And([expression, Not(remote_query)]))
+            # Don't break when complete (this would skip caching some remote
+            # data), but verify completeness after loop.
+            assert expression is False
         # Assemble result from the plan.
         return pd.concat(
             query_df(self.cache[cached_query], filter_query)
@@ -64,13 +78,17 @@ class MinimalCache(object):
 class PersistentDict(object):
     ''' dict-like interface which keeps a contents file using shelve and
     writes data using hdf5. Expression keys are serialised to JSON (shelf data
-    must be binary-encodable).
-    TODO keep an in-memory copy of contents for faster __getitem__. '''
+    must be binary-encodable). Implementation assumes only one PersistentDict
+    is accessing the store at a time (loads shelf on start then updates the
+    local copy only when modifying). '''
 
     def __init__(self, location):
         self.location = location
         self.contents_file = os.path.join(self.location, 'contents')
-        self.local_contents = dict()
+        if not os.path.exists(self.location):
+            os.makedirs(self.location)
+        with closing(shelve.open(self.contents_file)) as shelf:
+            self.local_contents = self.decode_shelf(shelf)
 
     @staticmethod
     def decode_shelf(shelf):
@@ -78,25 +96,14 @@ class PersistentDict(object):
             json.loads(key, object_hook=object_hook): data_id
             for key, data_id in shelf.items()}
 
-    def _update_local_contents(self):
-        ''' Reads the contents file to update the local copy. Expression keys
-        are decoded. '''
-        if not os.path.exists(self.location):
-            os.makedirs(self.location)
-        with closing(shelve.open(self.contents_file)) as shelf:
-            self.local_contents = self.decode_shelf(shelf)
-
     def keys(self):
         ''' Update local_contents and return expression keys. '''
-        self._update_local_contents()
         return self.local_contents.keys()
 
     def __getitem__(self, expression):
         ''' Return data corresponding to the given :expression. If :expression
         is not in the local copy of contents, update local copy before
         attempting to get the data identifier. '''
-        if expression not in self.local_contents:
-            self._update_local_contents()
         data_id = self.local_contents[expression]
         return pd.read_hdf(os.path.join(self.location, data_id))
 
@@ -134,3 +141,7 @@ def minimal_cache_persistent(remote, location):
 # That's a performance guarantee of sorts: if at any stage we reach a query
 # which is in the cache in its exact form, there should be no partial construction
 # of that component.
+
+# Is there a use case for terminating iterative remote reads early so the remote
+# can be very dumb and simply iterate over the component parts of the dataset?
+# That would be a different kind of cache...

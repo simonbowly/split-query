@@ -36,6 +36,11 @@ def source_query(expression):
     return query_df(SOURCE_2D, expression)
 
 
+def remote_iter(query):
+    yield Le(X, 2), source_query(Le(X, 2))
+    yield Gt(X, 2), source_query(Gt(X, 2))
+
+
 # Each testcase is a sequence of query pairs: the query passed to the cache,
 # and the expected query the cache should run on the remote given the queries
 # that have already been run. First element allows the default remote function
@@ -88,6 +93,11 @@ TESTCASES_SEQUENCE = [
         (Le(X, 2), Le(X, 2)),
         (Le(X, 3), None),
         ]),
+    # Remote returning an iterator (equivalent to True in this case).
+    (remote_iter, [
+        (Le(X, 2), Le(X, 2)),
+        (Le(X, 3), None),
+        ])
 ]
 
 

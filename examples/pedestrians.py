@@ -12,7 +12,7 @@ from split_query.core import (
     simplify_domain, traverse_expression)
 from split_query.interface import DataSet
 from split_query.remote import to_soql
-from split_query.cache import CachingBackend
+from split_query.cache import minimal_cache_inmemory
 
 
 class SoQLError(Exception):
@@ -68,7 +68,7 @@ def cache():
     def _decorator(cls):
         @functools.wraps(cls)
         def _decorated(*args, **kwargs):
-            return CachingBackend(cls(*args, **kwargs))
+            return minimal_cache_inmemory(cls(*args, **kwargs))
         return _decorated
     return _decorator
 
@@ -112,3 +112,14 @@ class PedestrianRemote(object):
         logging.info('REMOTE: ' + where)
         result = pd.DataFrame(list(map(parse_remote, self.paged_get(where))))
         return actual, result
+
+
+if __name__ == '__main__':
+    dataset = PedestrianRemote()
+    filtered = dataset[
+        dataset.datetime.between(datetime(2015, 5, 3), datetime(2016, 2, 3)) &
+        dataset['sensor_id'].isin([27, 28])]
+    print(filtered.get().shape)
+    print(filtered.get().datetime.min())
+    print(filtered.get().datetime.max())
+    print(filtered.get().sensor_id.unique())

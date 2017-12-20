@@ -17,7 +17,7 @@ def default(obj):
     if isinstance(obj, frozenset):
         return list(obj)
     if isinstance(obj, datetime.datetime):
-        return {'dt': True, 'data': obj.isoformat()}
+        return {'dt': True, 'data': obj.isoformat(), 'naive': obj.tzinfo is None}
     return obj
 
 
@@ -45,5 +45,6 @@ def object_hook(obj):
         if obj['expr'] == 'not':
             return Not(obj['clause'])
     if 'dt' in obj and obj['dt'] is True:
-        return iso8601.parse_date(obj['data'])
+        parsed = iso8601.parse_date(obj['data'])
+        return parsed.replace(tzinfo=None) if obj['naive'] else parsed
     return obj
