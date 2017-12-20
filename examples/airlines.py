@@ -1,18 +1,19 @@
 
+from future.standard_library import install_aliases
+install_aliases()
+
 import functools
 import itertools
 from datetime import datetime
 import logging
-logging.basicConfig(level=logging.INFO)
 import urllib
 
-import appdirs
 import pandas as pd
 
-from split_query.cache import minimal_cache_persistent
 from split_query.core import (And, Attribute, Eq, In, Le, Lt, Ge, Gt,
                               simplify_domain, traverse_expression)
-from pedestrians import cache, dataset
+
+from common import cache_persistent, dataset
 
 
 def read_chunks_grouped(file_name, grouper, **read_kwargs):
@@ -93,16 +94,6 @@ def expr_to_years(expression):
     return [int(obj.value) for obj in _intersections if obj is not False]
 
 
-def cache_persistent(store_name):
-    location = appdirs.user_data_dir(store_name)
-    def _decorator(cls):
-        @functools.wraps(cls)
-        def _decorated(*args, **kwargs):
-            return minimal_cache_persistent(cls(*args, **kwargs), location)
-        return _decorated
-    return _decorator
-
-
 @dataset(name='How Late Are My Airlines',
          attributes=['date', 'UniqueCarrier'])
 @cache_persistent('airline-data')
@@ -115,6 +106,7 @@ class AirlineData(object):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     arrivals = AirlineData()
     filtered = arrivals[
         arrivals.UniqueCarrier.isin(['US', 'WN']) &

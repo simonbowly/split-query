@@ -4,3 +4,6 @@ hypothesis
 mock
 pytest
 six
+
+appdirs
+requests

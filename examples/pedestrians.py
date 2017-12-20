@@ -10,9 +10,9 @@ from dateutil.parser import parse as parse_dt
 from split_query.core import (
     Attribute, Ge, Le, Gt, Lt, And, Or, Eq, In, Not,
     simplify_domain, traverse_expression)
-from split_query.interface import DataSet
 from split_query.remote import to_soql
-from split_query.cache import minimal_cache_inmemory
+
+from common import cache_inmemory, cache_persistent, dataset
 
 
 class SoQLError(Exception):
@@ -64,30 +64,11 @@ def parse_remote(entry):
         'sensor_id': int(entry['sensor_id'])}
 
 
-def cache():
-    def _decorator(cls):
-        @functools.wraps(cls)
-        def _decorated(*args, **kwargs):
-            return minimal_cache_inmemory(cls(*args, **kwargs))
-        return _decorated
-    return _decorator
-
-
-def dataset(name, attributes):
-    def _decorator(cls):
-        @functools.wraps(cls)
-        def _decorated(*args, **kwargs):
-            backend = cls(*args, **kwargs)
-            description = cls.__doc__.strip()
-            return DataSet(name, attributes, backend, description=description)
-        return _decorated
-    return _decorator
-
-
 @dataset(
     name='Melbourne Pedestrian Counters',
     attributes=['datetime', 'hourly_count', 'sensor_id'])
-@cache()
+@cache_persistent('pedestrians')
+# @cache_inmemory()
 class PedestrianRemote(object):
     ''' Hourly pedestrian counts from various intersections in Melbourne. '''
 
@@ -115,10 +96,11 @@ class PedestrianRemote(object):
 
 
 if __name__ == '__main__':
-    dataset = PedestrianRemote()
-    filtered = dataset[
-        dataset.datetime.between(datetime(2015, 5, 3), datetime(2016, 2, 3)) &
-        dataset['sensor_id'].isin([27, 28])]
+    logging.basicConfig(level=logging.INFO)
+    pedestrians = PedestrianRemote()
+    filtered = pedestrians[
+        pedestrians.datetime.between(datetime(2015, 5, 3), datetime(2016, 2, 3)) &
+        pedestrians.sensor_id.isin([27, 28])]
     print(filtered.get().shape)
     print(filtered.get().datetime.min())
     print(filtered.get().datetime.max())

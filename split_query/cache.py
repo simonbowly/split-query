@@ -82,12 +82,13 @@ class PersistentDict(object):
     is accessing the store at a time (loads shelf on start then updates the
     local copy only when modifying). '''
 
-    def __init__(self, location):
+    def __init__(self, location, protocol=None):
         self.location = location
         self.contents_file = os.path.join(self.location, 'contents')
+        self.protocol = protocol
         if not os.path.exists(self.location):
             os.makedirs(self.location)
-        with closing(shelve.open(self.contents_file)) as shelf:
+        with closing(shelve.open(self.contents_file, protocol=self.protocol)) as shelf:
             self.local_contents = self.decode_shelf(shelf)
 
     @staticmethod
@@ -116,7 +117,7 @@ class PersistentDict(object):
         data.to_hdf(os.path.join(self.location, data_id), key='main', complevel=3)
         if not os.path.exists(self.location):
             os.makedirs(self.location)
-        with closing(shelve.open(self.contents_file)) as shelf:
+        with closing(shelve.open(self.contents_file, protocol=self.protocol)) as shelf:
             key = json.dumps(expression, default=default)
             shelf[key] = data_id
             self.local_contents = self.decode_shelf(shelf)
@@ -126,8 +127,8 @@ def minimal_cache_inmemory(remote):
     return MinimalCache(remote, dict())
 
 
-def minimal_cache_persistent(remote, location):
-    return MinimalCache(remote, PersistentDict(location))
+def minimal_cache_persistent(remote, location, **kwargs):
+    return MinimalCache(remote, PersistentDict(location, **kwargs))
 
 
 # if cached_query == expression:
