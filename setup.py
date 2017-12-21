@@ -16,7 +16,6 @@ REQUIRED = [
     'frozendict',
     'future',
     'iso8601',
-    'msgpack-python',
     'pandas',
     'pytz',
     'sympy',

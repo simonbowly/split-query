@@ -15,6 +15,8 @@ EPOCH_NAIVE = datetime(1970, 1, 1, 0, 0, 0, 0)
 
 
 class SimplifyError(Exception):
+    ''' Raised when simplification methods :simplify_tree or :simplify_domain
+    encounter errors. '''
     pass
 
 
@@ -306,4 +308,6 @@ def _main_simplify_domain(expression):
 
 
 def simplify_domain(expression):
+    ''' Attempt to isolate expressions on one attribute and simplify the
+    resulting domains. '''
     return simplify_tree(_main_simplify_domain(expression))

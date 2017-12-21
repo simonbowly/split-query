@@ -2,6 +2,7 @@
 
 hypothesis
 mock
+msgpack-python
 pytest
 six
 
