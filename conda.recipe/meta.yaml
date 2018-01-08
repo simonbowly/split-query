@@ -1,8 +1,8 @@
 {% set name = "split-query" %}
-{% set version = "0.2.0" %}
+{% set version = "0.2.1" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "7c2c324f192cbfa8ab04372ff99bf04b21ac38ad135fb758a94158ddfbccd8bd" %}
+{% set hash_value = "aa6587d0cfbbca36b3ea08fcd743134c6b9b05f07ac7bde028e3fd9fa11ade7c" %}
 
 package:
   name: '{{ name|lower }}'
@@ -22,6 +22,7 @@ requirements:
   build:
     - python
   run:
+    - appdirs
     - python
     - frozendict        # Requires conda-forge channel.
     - future
@@ -36,6 +37,11 @@ test:
   imports:
     - split_query
     - split_query.core
+    - split_query.cache
+    - split_query.decorators
+    - split_query.engine
+    - split_query.interface
+    - split_query.remote
 
 about:
   home: https://github.com/simonbowly/split-query
