@@ -16,6 +16,17 @@ from split_query.core import (And, Attribute, Eq, In, Le, Lt, Ge, Gt,
 from common import cache_persistent, dataset
 
 
+URL_TEMPLATE = 'http://stat-computing.org/dataexpo/2009/{}.csv.bz2'
+
+COLUMNS = [
+    'Date', 'DepTime', 'CRSDepTime', 'ArrTime', 'CRSArrTime', 'UniqueCarrier',
+    'FlightNum', 'TailNum', 'ActualElapsedTime', 'CRSElapsedTime',
+    'AirTime', 'ArrDelay', 'DepDelay', 'Origin', 'Dest', 'Distance',
+    'TaxiIn', 'TaxiOut', 'Cancelled', 'CancellationCode', 'Diverted',
+    'CarrierDelay', 'WeatherDelay', 'NASDelay', 'SecurityDelay',
+    'LateAircraftDelay']
+
+
 def read_chunks_grouped(file_name, grouper, **read_kwargs):
     ''' Break up reading large file by month. Requires ordered data. '''
     for chunk in pd.read_csv(file_name, **read_kwargs):
@@ -45,23 +56,20 @@ def read_by_group(file_name, grouper, **read_kwargs):
 
 def map_parts(iterable):
     for (year, month), df in iterable:
-        df['date'] = pd.to_datetime(df[['Year', 'Month', 'DayofMonth']].rename(
+        df['Date'] = pd.to_datetime(df[['Year', 'Month', 'DayofMonth']].rename(
             columns={'DayofMonth': 'Day'}))
         start = datetime(year, month, 1)
         end = (start + pd.tseries.offsets.MonthBegin()).to_pydatetime()
         expression = And([
-            Ge(Attribute('date'), start), Lt(Attribute('date'), end)])
+            Ge(Attribute('Date'), start), Lt(Attribute('Date'), end)])
         logging.info('Partial: {} -> {}'.format(start, end))
-        yield expression, df
+        yield expression, df[COLUMNS]
 
 
 def download_tmp(remote_file):
     logging.info('Loading: {}'.format(remote_file))
     file_name, message = urllib.request.urlretrieve(remote_file)
     return file_name
-
-
-URL_TEMPLATE = 'http://stat-computing.org/dataexpo/2009/{}.csv.bz2'
 
 
 def get_years(years):
@@ -74,7 +82,7 @@ def get_years(years):
 
 def _filter_year_only(obj):
     if any(isinstance(obj, cls) for cls in [Eq, In, Le, Lt, Ge, Gt]):
-        if obj.attribute == Attribute('date'):
+        if obj.attribute == Attribute('Date'):
             if isinstance(obj, Gt) or isinstance(obj, Ge):
                 return Ge(Attribute('year'), obj.value.year)
             if isinstance(obj, Lt) or isinstance(obj, Le):
@@ -94,8 +102,7 @@ def expr_to_years(expression):
     return [int(obj.value) for obj in _intersections if obj is not False]
 
 
-@dataset(name='How Late Are My Airlines',
-         attributes=['date', 'UniqueCarrier'])
+@dataset(name='How Late Are My Airlines', attributes=COLUMNS)
 @cache_persistent('airline-data')
 class AirlineData(object):
     ''' Airlines!! '''
@@ -110,8 +117,8 @@ if __name__ == '__main__':
     arrivals = AirlineData()
     filtered = arrivals[
         arrivals.UniqueCarrier.isin(['US', 'WN']) &
-        arrivals.date.between(datetime(1987, 11, 2), datetime(1987, 11, 7))]
+        arrivals.Date.between(datetime(1987, 11, 2), datetime(1987, 11, 7))]
     print(filtered.get().shape)
-    print(filtered.get().date.min())
-    print(filtered.get().date.max())
+    print(filtered.get().Date.min())
+    print(filtered.get().Date.max())
     print(filtered.get().UniqueCarrier.unique())

@@ -15,6 +15,57 @@ from split_query.remote import to_soql
 from common import cache_inmemory, cache_persistent, dataset
 
 
+MAP_ID_NAME = {
+    1: 'Bourke Street Mall (North)',
+    2: 'Bourke Street Mall (South)',
+    3: 'Melbourne Central',
+    4: 'Town Hall (West)',
+    5: 'Princes Bridge',
+    6: 'Flinders Street Station Underpass',
+    7: 'Birrarung Marr',
+    8: 'Webb Bridge',
+    9: 'Southern Cross Station',
+    10: 'Victoria Point',
+    11: 'Waterfront City',
+    12: 'New Quay',
+    13: 'Flagstaff Station',
+    14: 'Sandridge Bridge',
+    15: 'State Library',
+    16: 'Australia on Collins',
+    17: 'Collins Place (South)',
+    18: 'Collins Place (North)',
+    19: 'Chinatown-Swanston St (North)',
+    20: 'Chinatown-Lt Bourke St (South)',
+    21: 'Bourke St-Russell St (West)',
+    22: 'Flinders St-Elizabeth St (East)',
+    23: 'Spencer St-Collins St (South)',
+    24: 'Spencer St-Collins St (North)',
+    25: 'Melbourne Convention Exhibition Centre',
+    26: 'QV Market-Elizabeth St (West)',
+    27: 'QV Market-Peel St',
+    28: 'The Arts Centre',
+    29: 'St Kilda Rd-Alexandra Gardens',
+    30: 'Lonsdale St (South)',
+    31: 'Lygon St (West)',
+    32: 'City Square',
+    33: 'Flinders St-Spring St (West)',
+    34: 'Flinders St-Spark La',
+    35: 'Southbank',
+    36: 'Queen St (West)',
+    37: 'Lygon St (East)',
+    38: 'Flinders St-Swanston St (West)',
+    39: 'Alfred Place',
+    40: 'Lonsdale St-Spring St (West)',
+    42: 'Grattan St-Swanston St (West)',
+    43: 'Monash Rd-Swanston St (West)',
+    44: 'Tin Alley-Swanston St (West)',
+}
+
+
+MAP_NAME_ID = {value: key for key, value in MAP_ID_NAME.items()}
+MAP_ID_NAME = pd.Series(MAP_ID_NAME, name='sensor')
+
+
 class SoQLError(Exception):
     pass
 
@@ -52,8 +103,8 @@ def _map_soql_where(obj):
         return Ge(Attribute('year'), obj.value.year)
     if (isinstance(obj, Le) or isinstance(obj, Lt)) and obj.attribute == Attribute('datetime'):
         return Le(Attribute('year'), obj.value.year)
-    if isinstance(obj, In):
-        return Or([Eq(obj.attribute, value) for value in obj.valueset])
+    if isinstance(obj, In) and obj.attribute == Attribute('sensor'):
+        return Or([Eq(Attribute('sensor_id'), MAP_NAME_ID[name]) for name in obj.valueset])
     return obj
 
 
@@ -66,7 +117,7 @@ def parse_remote(entry):
 
 @dataset(
     name='Melbourne Pedestrian Counters',
-    attributes=['datetime', 'hourly_count', 'sensor_id'])
+    attributes=['datetime', 'hourly_count', 'sensor'])
 @cache_persistent('pedestrians')
 # @cache_inmemory()
 class PedestrianRemote(object):
@@ -92,6 +143,9 @@ class PedestrianRemote(object):
             expression, hook=_map_soql_where)))
         logging.info('REMOTE: ' + where)
         result = pd.DataFrame(list(map(parse_remote, self.paged_get(where))))
+        result = result.join(
+            MAP_ID_NAME, on='sensor_id').drop(
+            columns=['sensor_id'])
         return actual, result
 
 
@@ -100,8 +154,8 @@ if __name__ == '__main__':
     pedestrians = PedestrianRemote()
     filtered = pedestrians[
         pedestrians.datetime.between(datetime(2015, 5, 3), datetime(2016, 2, 3)) &
-        pedestrians.sensor_id.isin([27, 28])]
+        pedestrians.sensor.isin(['Town Hall (West)', 'Southbank'])]
     print(filtered.get().shape)
     print(filtered.get().datetime.min())
     print(filtered.get().datetime.max())
-    print(filtered.get().sensor_id.unique())
+    print(filtered.get().sensor.unique())
