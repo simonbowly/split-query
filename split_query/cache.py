@@ -128,8 +128,11 @@ class PersistentDict(object):
 
     def clear_cache(self):
         for data_id in self.local_contents.values():
-            os.remove(os.path.join(self.location, data_id))
-        os.remove(self.contents_file)
+            data_file = os.path.join(self.location, data_id)
+            if os.path.exists(data_file):
+                os.remove(data_file)
+        if os.path.exists(self.contents_file):
+            os.remove(self.contents_file)
         self.local_contents = dict()
 
 

@@ -13,6 +13,7 @@ EMAIL = 'simon.bowly@gmail.com'
 AUTHOR = 'Simon Bowly'
 
 REQUIRED = [
+    'appdirs',
     'frozendict',
     'future',
     'iso8601',
