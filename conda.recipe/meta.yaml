@@ -1,8 +1,8 @@
 {% set name = "split-query" %}
-{% set version = "0.1.0" %}
+{% set version = "0.2.0" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "e0a574443be98a487b91f1d009b0d06723225bd2604f7bc666c4001340900d79" %}
+{% set hash_value = "7c2c324f192cbfa8ab04372ff99bf04b21ac38ad135fb758a94158ddfbccd8bd" %}
 
 package:
   name: '{{ name|lower }}'
