@@ -74,6 +74,10 @@ class MinimalCache(object):
             query_df(self.cache[cached_query], filter_query)
             for cached_query, filter_query in plan)
 
+    def clear_cache(self):
+        if hasattr(self.cache, 'clear_cache'):
+            self.cache.clear_cache()
+
 
 class PersistentDict(object):
     ''' dict-like interface which keeps a contents file using shelve and
@@ -121,6 +125,12 @@ class PersistentDict(object):
             key = json.dumps(expression, default=default)
             shelf[key] = data_id
             self.local_contents = self.decode_shelf(shelf)
+
+    def clear_cache(self):
+        for data_id in self.local_contents.values():
+            os.remove(os.path.join(self.location, data_id))
+        os.remove(self.contents_file)
+        self.local_contents = dict()
 
 
 def minimal_cache_inmemory(remote):

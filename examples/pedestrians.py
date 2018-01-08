@@ -11,8 +11,7 @@ from split_query.core import (
     Attribute, Ge, Le, Gt, Lt, And, Or, Eq, In, Not,
     simplify_domain, traverse_expression)
 from split_query.remote import to_soql
-
-from common import cache_inmemory, cache_persistent, dataset
+from split_query.decorators import cache_inmemory, cache_persistent, dataset
 
 
 MAP_ID_NAME = {

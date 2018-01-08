@@ -4,6 +4,7 @@ from datetime import datetime
 import functools
 
 from .core.expressions import And, Or, Not, In, Eq, Le, Lt, Ge, Gt, Attribute
+from .core.simplify import simplify_tree
 from .core.traverse import traverse_expression
 
 
@@ -41,3 +42,17 @@ def soql_hook(obj):
 def to_soql(expression):
     ''' Convert expression object to SOQL query string. '''
     return traverse_expression(expression, hook=soql_hook)
+
+
+def hook_only(attribute_names):
+    def _hook_only(obj):
+        if any(isinstance(obj, t) for t in [Eq, Le, Lt, Ge, Gt, In]):
+            if obj.attribute.name not in attribute_names:
+                return True
+        return obj
+    return _hook_only
+
+
+def with_only_fields(expression, attributes):
+    ''' Return a new expression which filters only on the given attribute names. '''
+    return simplify_tree(traverse_expression(expression, hook=hook_only(attributes)))

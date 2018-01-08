@@ -5,7 +5,7 @@ import functools
 
 import pytest
 
-from split_query.remote import to_soql
+from split_query.remote import to_soql, with_only_fields
 from split_query.core.expressions import And, Or, Not, In, Eq, Le, Lt, Ge, Gt, Attribute
 
 
@@ -31,3 +31,17 @@ TESTCASES_TO_SOQL = [
 @pytest.mark.parametrize('expression, expected', TESTCASES_TO_SOQL)
 def test_soql(expression, expected):
     assert to_soql(expression) == expected
+
+
+A = Attribute('a')
+B = Attribute('b')
+
+
+@pytest.mark.parametrize('expression, only, result', [
+    (And([Lt(A, 2), Gt(B, 3)]), [], True),
+    (And([Lt(A, 2), Gt(B, 3)]), ['a'], Lt(A, 2)),
+    (And([Lt(A, 2), Gt(B, 3)]), ['b'], Gt(B, 3)),
+    (And([Lt(A, 2), Gt(B, 3)]), ['a', 'b', 'c'], And([Lt(A, 2), Gt(B, 3)])),
+    ])
+def test_with_only_fields(expression, only, result):
+    assert with_only_fields(expression, only) == result

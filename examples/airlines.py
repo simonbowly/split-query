@@ -12,8 +12,7 @@ import pandas as pd
 
 from split_query.core import (And, Attribute, Eq, In, Le, Lt, Ge, Gt,
                               simplify_domain, traverse_expression)
-
-from common import cache_persistent, dataset
+from split_query.decorators import cache_persistent, dataset
 
 
 URL_TEMPLATE = 'http://stat-computing.org/dataexpo/2009/{}.csv.bz2'

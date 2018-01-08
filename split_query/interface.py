@@ -112,8 +112,7 @@ class DataSet(object):
     def __getattr__(self, attr):
         if attr in self.attributes:
             return AttributeContainer(self.attributes[attr])
-        raise AttributeError("'{}' object has no attribute '{}'".format(
-            self.__class__.__name__, attr))
+        return getattr(self.backend, attr)
 
     def __getitem__(self, expr):
         if isinstance(expr, str) and expr in self.attributes:
