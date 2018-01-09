@@ -102,3 +102,6 @@ ENV/
 
 # Sublime
 *.sublime-workspace
+
+# Benchmark results
+benchmarks/*.csv
