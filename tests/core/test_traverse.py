@@ -8,6 +8,7 @@ from split_query.core import (
     And, Attribute, Eq, Ge, Le, Gt, Lt, In, Not, Or,
     get_attributes, get_clauses, traverse_expression)
 
+
 RV = 'out'
 X, Y, Z = [Attribute(n) for n in 'xyz']
 ASSIGNMENTS = {'a': True, 'b': False, 'c': True}
