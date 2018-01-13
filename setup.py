@@ -14,7 +14,6 @@ AUTHOR = 'Simon Bowly'
 
 REQUIRED = [
     'appdirs',
-    'frozendict',
     'future',
     'iso8601',
     'pandas',

@@ -2,120 +2,135 @@
 
 from builtins import super
 
-import frozendict
 
-
-class Expression(frozendict.frozendict):
-    ''' Borrows the data structures from a frozendict to create immutable
-    objects. Child class constructor should give a unique name to ensure it
-    is indistinguishable from other frozendicts. Resulting objects have a
-    dictionary representation, making it easier to serialise, compare and hash.
-    '''
-
-    def __init__(self, expr, **kwargs):
-        super().__init__(kwargs, expr=expr)
-
-    def __getattr__(self, attr):
-        ''' Attribute read access to the dict key-values for convenience. '''
-        if attr in self:
-            return self[attr]
-        raise AttributeError("'{}' object has no attribute '{}'".format(
-            self.__class__.__name__, attr))
+class Expression(object):
+    pass
 
 
 class Attribute(Expression):
-    ''' Named continuous numerical attribute. '''
 
     def __init__(self, name):
-        super().__init__('attr', name=name)
+        self.name = name
 
     def __repr__(self):
         return 'ATTR({})'.format(self.name)
 
+    def __eq__(self, other):
+        return isinstance(other, Attribute) and (self.name == other.name)
 
-class BinaryRelation(Expression):
-    ''' Injects a named-class repr for attr-value relations. '''
+    def __hash__(self):
+        return hash(self.name)
+
+
+class AttributeRelation(Expression):
+
+    def __init__(self, attribute, value):
+        self.attribute = attribute
+        self.value = value
 
     def __repr__(self):
         return '{}({},{})'.format(
             self.__class__.__name__,
             repr(self.attribute), repr(self.value))
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__) and
+            (self.attribute == other.attribute) and
+            (self.value == other.value))
 
-class Eq(BinaryRelation):
+    def __hash__(self):
+        return hash((self.__class__.__name__, self.attribute, self.value))
+
+    @property
+    def expr(self):
+        return self.__class__.__name__.lower()
+
+
+class Eq(AttributeRelation):
     ''' Binary expression: attribute == value. '''
-
-    def __init__(self, attribute, value):
-        super().__init__('eq', attribute=attribute, value=value)
+    pass
 
 
-class Le(BinaryRelation):
+class Le(AttributeRelation):
     ''' Binary expression: attribute <= value. '''
-
-    def __init__(self, attribute, value):
-        super().__init__('le', attribute=attribute, value=value)
+    pass
 
 
-class Lt(BinaryRelation):
+class Lt(AttributeRelation):
     ''' Binary expression: attribute < value. '''
-
-    def __init__(self, attribute, value):
-        super().__init__('lt', attribute=attribute, value=value)
+    pass
 
 
-class Ge(BinaryRelation):
+class Ge(AttributeRelation):
     ''' Binary expression: attribute >= value. '''
-
-    def __init__(self, attribute, value):
-        super().__init__('ge', attribute=attribute, value=value)
+    pass
 
 
-class Gt(BinaryRelation):
+class Gt(AttributeRelation):
     ''' Binary expression: attribute > value. '''
-
-    def __init__(self, attribute, value):
-        super().__init__('gt', attribute=attribute, value=value)
+    pass
 
 
-class In(Expression):
+class In(AttributeRelation):
+    ''' Binary expression: attribute is in value. '''
 
     def __init__(self, attribute, valueset):
-        super().__init__(
-            'in', attribute=attribute, valueset=frozenset(valueset))
+        super().__init__(attribute, frozenset(valueset))
 
-    def __repr__(self):
-        return 'In({},{})'.format(
-            repr(self.attribute), repr(set(self.valueset)))
+    @property
+    def valueset(self):
+        return self.value
 
 
 class LogicalRelation(Expression):
     ''' Injects a named-class repr method for And/Or. '''
-
-    def __repr__(self):
-        return '{}({})'.format(
-            self.__class__.__name__,
-            repr(list(self.clauses)))
+    pass
 
 
 class And(LogicalRelation):
     ''' Logical expression linking clauses with AND. '''
 
     def __init__(self, clauses):
-        super().__init__('and', clauses=frozenset(clauses))
+        self.clauses = frozenset(clauses)
+
+    def __repr__(self):
+        return 'AND({})'.format(repr(list(self.clauses)))
+
+    def __eq__(self, other):
+        return isinstance(other, And) and (self.clauses == other.clauses)
+
+    def __hash__(self):
+        return hash(('and', self.clauses))
 
 
 class Or(LogicalRelation):
     ''' Logical expression linking clauses with OR. '''
 
     def __init__(self, clauses):
-        super().__init__('or', clauses=frozenset(clauses))
+        self.clauses = frozenset(clauses)
+
+    def __repr__(self):
+        return 'OR({})'.format(repr(list(self.clauses)))
+
+    def __eq__(self, other):
+        return isinstance(other, Or) and (self.clauses == other.clauses)
+
+    def __hash__(self):
+        return hash(('or', self.clauses))
 
 
-class Not(Expression):
+class Not(LogicalRelation):
     ''' Logical expression negating a clause. '''
 
     def __init__(self, clause):
-        super().__init__('not', clause=clause)
+        self.clause = clause
 
     def __repr__(self):
         return 'Not({})'.format(repr(self.clause))
+
+    def __eq__(self, other):
+        return isinstance(other, Not) and (self.clause == other.clause)
+
+    def __hash__(self):
+        return hash(('not', self.clause))

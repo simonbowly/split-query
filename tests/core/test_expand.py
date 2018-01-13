@@ -4,7 +4,6 @@ import pytest
 from frozendict import frozendict
 from hypothesis import strategies as st
 from hypothesis import event, given
-import six
 
 from split_query.core import And, Not, Or, get_clauses, expand_dnf
 from split_query.core.expand import truth_table
@@ -48,13 +47,7 @@ def test_expand_dnf(expression, result):
     assert expand_dnf(expression) == result
 
 
-# Deal with python2 slowness (only pass small expressions).
-# There is a pretty significant (and inconsistent) speed difference between
-# python2 and 3 for this operation, to the point of 'flaky timeout' failure
-# in hypothesis. To combat this, only the fast tests will by run for python2.
-variables = ['abc'] if six.PY2 else ['abc', 'abcdef']
-
-@given(st.sampled_from(variables).flatmap(lambda names: expression_trees(
+@given(st.sampled_from(['abc', 'abcdef']).flatmap(lambda names: expression_trees(
     st.sampled_from(list(names)), max_depth=3, min_width=2, max_width=3)))
 def test_expand_dnf_fuzz(expression):
     ''' Test DNF expansions on expressions with a limited number of variables.

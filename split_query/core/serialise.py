@@ -3,17 +3,28 @@ based on frozenset and frozendict classes into lists and dicts. '''
 
 import datetime
 
-import frozendict
 import iso8601
 
-from .expressions import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or
+from .expressions import (
+    Attribute, AttributeRelation, And, Or, Not,
+    Eq, Ge, Gt, In, Le, Lt)
 
 
 def default(obj):
     ''' Handle frozen things. Note that since order of iteration over a set is arbitrary,
     byte representation will not be consistent. '''
-    if isinstance(obj, frozendict.frozendict):
-        return dict(obj)
+    if isinstance(obj, Attribute):
+        return dict(expr='attr', name=obj.name)
+    if isinstance(obj, AttributeRelation):
+        return dict(
+            expr=obj.__class__.__name__.lower(),
+            attribute=obj.attribute, value=obj.value)
+    if isinstance(obj, And):
+        return dict(expr='and', clauses=obj.clauses)
+    if isinstance(obj, Or):
+        return dict(expr='or', clauses=obj.clauses)
+    if isinstance(obj, Not):
+        return dict(expr='not', clause=obj.clause)
     if isinstance(obj, frozenset):
         return list(obj)
     if isinstance(obj, datetime.datetime):
@@ -37,7 +48,7 @@ def object_hook(obj):
         if obj['expr'] == 'gt':
             return Gt(obj['attribute'], obj['value'])
         if obj['expr'] == 'in':
-            return In(obj['attribute'], obj['valueset'])
+            return In(obj['attribute'], obj['value'])
         if obj['expr'] == 'and':
             return And(obj['clauses'])
         if obj['expr'] == 'or':

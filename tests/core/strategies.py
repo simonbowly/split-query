@@ -19,6 +19,9 @@ def unique_expressions():
     for relation, attr, value in itertools.product(
             [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
         yield relation(attr, value)
+    for relation, attr, value in itertools.product(
+            [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
+        yield Not(relation(attr, value))
     yield In(Attribute('x'), ['a', 'b'])
     yield And(['a', 'b'])
     yield And(['a', 'c'])

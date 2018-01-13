@@ -24,12 +24,10 @@ requirements:
   run:
     - appdirs
     - python
-    - frozendict        # Requires conda-forge channel.
     - future
     - iso8601
-    - msgpack-python
     - pandas
-    - pytables          # Named tables on PyPI and for import.
+    - pytables          # Named tables on PyPI and in source.
     - pytz
     - sympy
 

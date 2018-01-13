@@ -1,10 +1,15 @@
--r requirements.txt
+appdirs
+future
+iso8601
+pandas
+pytz
+sympy
+tables
 
+frozendict
 hypothesis
 mock
 msgpack-python
 pytest
-six
 
-appdirs
 requests

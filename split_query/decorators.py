@@ -3,7 +3,6 @@ import functools
 import os
 
 import appdirs
-import six
 
 from split_query.cache import minimal_cache_inmemory, minimal_cache_persistent
 from split_query.interface import DataSet

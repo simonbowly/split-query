@@ -1,7 +1,0 @@
-frozendict
-future
-iso8601
-pandas
-pytz
-sympy
-tables
