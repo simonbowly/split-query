@@ -55,6 +55,12 @@ def _satisfies(value, inequality):
     assert False, 'Invalid _satisfies input: {}, {}'.format(value, inequality)
 
 
+def _flatten(clauses, _type):
+    return itertools.chain(*(
+        _flatten(cl.clauses, _type) if type(cl) is _type else (cl,)
+        for cl in clauses))
+
+
 def simplify_flat(expression):
     ''' Simplify And([a, b, c, ...]) expressions where the clauses are simple. '''
 
@@ -65,21 +71,34 @@ def simplify_flat(expression):
         neg_clause = simplify_flat(expression.clause)
         if type(neg_clause) in [Le, Lt, Ge, Gt, In, Eq]:
             return _negate_simple(neg_clause)
+        elif neg_clause is True:
+            return False
+        elif neg_clause is False:
+            return True
         else:
             return Not(neg_clause)
 
     elif type(expression) is Or:
-        return Or(simplify_flat(cl) for cl in expression.clauses)
+        clauses = [simplify_flat(cl) for cl in _flatten(expression.clauses, Or)]
+        assert len(clauses) > 0
+        if any(cl is True for cl in clauses):
+            return True
+        clauses = [cl for cl in clauses if cl is not False]
+        if len(clauses) == 0:   # Must have been all False
+            return False
+        return clauses[0] if len(clauses) == 1 else Or(cl for cl in clauses)
 
     elif type(expression) is And:
 
-        expression = And(simplify_flat(cl) for cl in expression.clauses)
+        clauses = [simplify_flat(cl) for cl in _flatten(expression.clauses, And)]
+        if any(cl is False for cl in clauses):
+            return False
 
         # Group expressions that can be simplified by attribute. Anything
         # not in scope for this algorithm is passed straight to output_clauses.
         output_clauses = []
         by_attribute = collections.defaultdict(list)
-        for clause in expression.clauses:
+        for clause in clauses:
             if type(clause) in (Le, Lt, Ge, Gt, In, NotIn):
                 by_attribute[clause.attribute].append(clause)
             else:
@@ -133,6 +152,11 @@ def simplify_flat(expression):
 
         # Return composed result.
         assert len(output_clauses) > 0
+        if any(cl is False for cl in output_clauses):
+            return False
+        output_clauses = [cl for cl in output_clauses if cl is not True]
+        if len(output_clauses) == 0:   # Must have been all True
+            return True
         return And(output_clauses) if len(output_clauses) > 1 else output_clauses[0]
 
     return expression
@@ -204,18 +228,67 @@ TESTCASES = [
     (x.isin([0, 1, 2]) & (x < 2),   x.isin([0, 1])),
     (x.isin([1, 2, 3]) & (x <= 2),  x.isin([1, 2])),
     (x.isin([1, 2, 3]) & (x > 3),   False),
-    # Recursive handling of nested expressions.
+    # Recursive handling.
     (
         ((x > 1) & (x > 2)) | ((y > 1) & (y > 2)),
         (x > 2) | (y > 2)),
     (~((x > 1) & (x > 2)),          (x <= 2)),
+    # Flatten nested expressions.
+    (
+        And([
+            ((x > 1) & (y > 2)).wrapped,
+            And([
+                ((x > 2) & (y > 1)).wrapped,
+                ((x > 3) & (y > 3)).wrapped])]),
+        (x > 3) & (y > 3)),
+    (
+        Or([
+            (x > 1).wrapped,
+            Or([
+                (x > 2).wrapped,
+                ((x > 3) | (x > 4)).wrapped])]),
+        (x > 1) | (x > 2) | (x > 3) | (x > 4)),
+    # Literal relations.
+    (~((x > 1) & (x < 0)), True),
+    (((x > 1) & (x < 0)) | y.isin([1, 2]), y.isin([1, 2])),
 ]
 
 
-@pytest.mark.parametrize('expression, simplified', TESTCASES)
+TESTCASES_SIMPLIFY_TREE = [
+    # Unsimplifiable
+    (And(['a', 'b']),               And(['a', 'b'])),
+    (And([Or(['a', 'b']), 'c']),    And([Or(['a', 'b']), 'c'])),
+    (Or([And(['a', 'b']), 'c']),    Or([And(['a', 'b']), 'c'])),
+    # Flattenable
+    (And([And(['a', 'b']), 'c']),   And(['a', 'b', 'c'])),
+    (Or([Or(['a', 'b']), 'c']),     Or(['a', 'b', 'c'])),
+    # Redundant expressions
+    (And(['a']),                    'a'),
+    (Or(['b']),                     'b'),
+    (Not(And(['a'])),               Not('a')),
+    (Not(Or(['b'])),                Not('b')),
+    # Dominant literals
+    (And([True, False]),            False),
+    (Or([True, False]),             True),
+    (And(['a', False]),             False),
+    (Or([True, 'b']),               True),
+    # # Redundant literals
+    (And(['a', 'b', True]),         And(['a', 'b'])),
+    (Or(['a', 'b', False]),         Or(['a', 'b'])),
+    # # Fuzzed edge cases
+    (And([True, True]),             True),
+    (Or([False, False]),            False),
+    # # Negations
+    (Not(True),                     False),
+    (Not(False),                    True),
+]
+
+
+@pytest.mark.parametrize('expression, simplified', TESTCASES + TESTCASES_SIMPLIFY_TREE)
 def test_simplify_flat(expression, simplified):
     if isinstance(expression, ExpressionContainer):
         expression = expression.wrapped
     if isinstance(simplified, ExpressionContainer):
         simplified = simplified.wrapped
+    print(expression)
     assert simplify_flat(expression) == simplified
