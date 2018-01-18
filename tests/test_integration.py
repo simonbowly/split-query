@@ -18,7 +18,8 @@ import pytest
 from hypothesis import assume, event, given
 
 from split_query.engine import query_df
-from split_query.core import Attribute, expand_dnf, get_clauses, simplify_domain, simplify_tree
+from split_query.core import Attribute, expand_dnf, get_clauses, simplify_tree
+from split_query.core.algorithms import simplify
 from .core.strategies import continuous_numeric_relation, expression_trees
 
 x, y, z = [Attribute(n) for n in 'xyz']
@@ -38,7 +39,7 @@ def test_simplified_query(expression):
     same result as the original using the pandas engine. '''
     assume(len(get_clauses(expression)) < 5)
     expression = simplify_tree(expression)
-    expression_simplified = simplify_domain(expand_dnf(expression))
+    expression_simplified = simplify(expand_dnf(expression))
     result = query_df(SOURCE_3D, expression)
     result_simplified = query_df(SOURCE_3D, expression)
     assert set(result['point']) == set(result_simplified['point'])

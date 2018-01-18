@@ -1,7 +1,8 @@
 
 from collections import defaultdict
 from itertools import product, chain
-from split_query.core import And, In, Eq, Le, Lt, Ge, Gt, simplify_tree, traverse_expression, simplify_domain, expand_dnf, Or
+from .core import And, In, Eq, Le, Lt, Ge, Gt, simplify_tree, traverse_expression, expand_dnf, Or
+from .core.algorithms import simplify
 
 
 def extract_parameters(expression, parameters):
@@ -100,7 +101,7 @@ def split_parameters(expression, parameters):
     expression = with_only_fields(expression, attributes)
 
     # Break query into subqueries for extract_parameters.
-    expanded = simplify_domain(expand_dnf(expression))
+    expanded = simplify(expand_dnf(expression))
     if isinstance(expanded, And):
         subqueries = [expanded]
     elif isinstance(expanded, Or):

@@ -10,15 +10,15 @@ import uuid
 
 import pandas as pd
 
-from .core import (And, Or, Not, expand_dnf, simplify_domain, simplify_tree,
-                   default, object_hook)
+from .core import And, Or, Not, expand_dnf, default, object_hook
+from .core.algorithms import simplify as simplify_flat
 from .engine import query_df
 
 
 def simplify(expression):
     ''' Complete simplification (guarantees reaching False if possible). '''
     try:
-        return simplify_tree(simplify_domain(expand_dnf(expression)))
+        return simplify_flat(expand_dnf(expression))
     except:
         logging.warning('Failed simplify: ' + repr(expression))
         raise
