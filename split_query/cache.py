@@ -1,6 +1,7 @@
 
 from builtins import super
 from contextlib import closing
+import collections
 import json
 import logging
 import os
@@ -33,14 +34,18 @@ class MinimalCache(object):
     def __init__(self, remote, cache):
         self.remote = remote
         self.cache = cache
+        # Tracks most recent execution path.
+        self.tracking = []
 
     def get(self, expression):
         ''' Sequentially eliminates parts of the input query with overlapping
         data from the cache. Queries the remote for any missing entries. '''
         plan = []
+        tracking = []
         for cached_query in self.cache.keys():
             # If the cache element overlaps the current expression, add it
             # to the partial data and replace expression with remainder.
+            tracking.append(('cache', expression, cached_query))
             intersection = simplify(And([expression, cached_query]))
             if intersection is not False:
                 plan.append((cached_query, expression))
@@ -62,6 +67,7 @@ class MinimalCache(object):
                 # Input new data, add to the plan if useful.
                 assert remote_query not in self.cache.keys()
                 self.cache[remote_query] = remote_data
+                tracking.append(('remote', expression, remote_query))
                 intersection = simplify(And([expression, remote_query]))
                 if intersection is not False:
                     plan.append((remote_query, expression))
@@ -70,6 +76,7 @@ class MinimalCache(object):
             # data), but verify completeness after loop.
             assert expression is False, expression
         # Assemble result from the plan.
+        self.tracking = tracking
         return pd.concat(
             query_df(self.cache[cached_query], filter_query)
             for cached_query, filter_query in plan)
