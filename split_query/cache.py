@@ -11,17 +11,8 @@ import uuid
 import pandas as pd
 
 from .core import And, Or, Not, expand_dnf, default, object_hook
-from .core.algorithms import simplify as simplify_flat
+from .core.expand import expand_dnf_simplify as simplify
 from .engine import query_df
-
-
-def simplify(expression):
-    ''' Complete simplification (guarantees reaching False if possible). '''
-    try:
-        return simplify_flat(expand_dnf(expression))
-    except:
-        logging.warning('Failed simplify: ' + repr(expression))
-        raise
 
 
 class MinimalCache(object):
@@ -68,7 +59,7 @@ class MinimalCache(object):
                     expression = simplify(And([expression, Not(remote_query)]))
             # Don't break when complete (this would skip caching some remote
             # data), but verify completeness after loop.
-            assert expression is False
+            assert expression is False, expression
         # Assemble result from the plan.
         return pd.concat(
             query_df(self.cache[cached_query], filter_query)

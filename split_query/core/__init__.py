@@ -5,5 +5,5 @@ communicate by passing core expression objects. '''
 from .expand import expand_dnf
 from .expressions import Attribute, And, Or, Not, Eq, Le, Lt, Ge, Gt, Eq, In
 from .serialise import default, object_hook
-from .simplify import simplify_domain, simplify_tree, SimplifyError
+from .simplify import simplify_tree
 from .traverse import get_attributes, get_clauses, traverse_expression

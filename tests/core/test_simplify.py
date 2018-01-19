@@ -5,7 +5,7 @@ import pytest
 from hypothesis import strategies as st
 from hypothesis import event, given
 
-from split_query.core import And, Or, simplify_tree, traverse_expression, get_attributes, simplify_domain
+from split_query.core import And, Or, simplify_tree, traverse_expression, get_attributes
 from .strategies import expression_recursive, structured_3d_expressions
 
 
@@ -55,37 +55,3 @@ def test_simplify_tree_literal(expression):
         event("True")
     elif result is False:
         event("False")
-
-
-@given(structured_3d_expressions(max_leaves=100))
-def test_simplify_domain_fuzz(expression):
-    ''' Expressions of three variables, which should give some opportunity
-    to simplify domains. Records events to track:
-
-    * Result was True/False/Neither
-    * Result differed from simplify_tree (domain simplification was performed)
-    * Result was changed/unchanged
-
-    '''
-    n_vars = len(get_attributes(expression))
-    event('Variables: {}'.format(n_vars))
-    result = simplify_domain(expression)
-    tree_result = simplify_tree(expression)
-
-    if result == tree_result:
-        event("Same result as simplify_tree")
-    else:
-        event("Differs from simplify_tree")
-
-    if result is True:
-        event("Result was True")
-    elif result is False:
-        event("Result was False")
-    else:
-        event("Result neither True nor False")
-        traverse_expression(result, hook=assertion_hook)
-
-    if result == expression:
-        event("Expression unaltered")
-    else:
-        event("Expression altered")

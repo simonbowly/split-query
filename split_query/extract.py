@@ -1,8 +1,8 @@
 
 from collections import defaultdict
 from itertools import product, chain
-from .core import And, In, Eq, Le, Lt, Ge, Gt, simplify_tree, traverse_expression, expand_dnf, Or
-from .core.algorithms import simplify
+from .core import And, In, Eq, Le, Lt, Ge, Gt, simplify_tree, traverse_expression, Or
+from .core.expand import expand_dnf_simplify
 
 
 def extract_parameters(expression, parameters):
@@ -44,13 +44,14 @@ def extract_parameters(expression, parameters):
         if parameter['type'] == 'tag':
             assert len(clauses) == 1
             clause = next(iter(clauses))
-            assert isinstance(clause, In)
+            assert type(clause) in (In, Eq)
+            valueset = clause.valueset if type(clause) is In else [clause.value]
             if parameter['single']:
                 new_results = [
                     ([In(clause.attribute, [value])], {parameter['key']: value})
-                    for value in clause.valueset]
+                    for value in valueset]
             else:
-                new_results = [([clause], {parameter['key']: set(clause.valueset)})]
+                new_results = [([In(clause.attribute, valueset)], {parameter['key']: set(valueset)})]
 
         elif parameter['type'] == 'range':
             if len(clauses) != 2:
@@ -101,7 +102,7 @@ def split_parameters(expression, parameters):
     expression = with_only_fields(expression, attributes)
 
     # Break query into subqueries for extract_parameters.
-    expanded = simplify(expand_dnf(expression))
+    expanded = expand_dnf_simplify(expression)
     if isinstance(expanded, And):
         subqueries = [expanded]
     elif isinstance(expanded, Or):

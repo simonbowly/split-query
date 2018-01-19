@@ -13,23 +13,6 @@ class NotIn(object):
         self.valueset = valueset
 
 
-def _negate_simple(cl):
-    _type = type(cl)
-    if _type is Le:
-        return Gt(cl.attribute, cl.value)
-    elif _type is Lt:
-        return Ge(cl.attribute, cl.value)
-    elif _type is Ge:
-        return Lt(cl.attribute, cl.value)
-    elif _type is Gt:
-        return Le(cl.attribute, cl.value)
-    elif _type is In:
-        return NotIn(cl.attribute, cl.valueset)
-    elif _type is Eq:
-        return NotIn(cl.attribute, [cl.value])
-    assert False, 'Invalid _negate_simple input: {}'.format(cl)
-
-
 def _simplify_in(cl1, cl2):
     ''' Called with a pair of In/NotIn objects, returning a single clause. '''
     assert type(cl1) in [In, NotIn] and type(cl2) in [In, NotIn]
@@ -58,70 +41,71 @@ def _satisfies(value, inequality):
     assert False, 'Invalid _satisfies input: {}, {}'.format(value, inequality)
 
 
-def _flatten(clauses, _type):
-    return itertools.chain(*(
-        _flatten(cl.clauses, _type) if type(cl) is _type else (cl,)
-        for cl in clauses))
+def _normalise_input(clause):
+    if type(clause) is Eq:
+        return In(clause.attribute, [clause.value])
+    if type(clause) is Not:
+        sub = clause.clause
+        if type(sub) is Ge:
+            return Lt(sub.attribute, sub.value)
+        if type(sub) is Gt:
+            return Le(sub.attribute, sub.value)
+        if type(sub) is Le:
+            return Gt(sub.attribute, sub.value)
+        if type(sub) is Lt:
+            return Ge(sub.attribute, sub.value)
+        if type(sub) is In:
+            return NotIn(sub.attribute, sub.valueset)
+        if type(sub) is Eq:
+            return NotIn(sub.attribute, {sub.value})
+    return clause
 
 
-def simplify_flat(expression):
-    ''' Simplify And([a, b, c, ...]) expressions where the clauses are simple. '''
-
-    if type(expression) is Eq:
-        return In(expression.attribute, [expression.value])
-
-    elif type(expression) is Not:
-        neg_clause = simplify_flat(expression.clause)
-        if type(neg_clause) in [Le, Lt, Ge, Gt, In, Eq]:
-            return _negate_simple(neg_clause)
-        elif neg_clause is True:
-            return False
-        elif neg_clause is False:
-            return True
+def _normalise_output(clause):
+    if type(clause) is In and len(clause.valueset) == 1:
+        return Eq(clause.attribute, next(iter(clause.valueset)))
+    if type(clause) is NotIn:
+        if len(clause.valueset) == 1:
+            return Not(Eq(clause.attribute, next(iter(clause.valueset))))
         else:
-            return Not(neg_clause)
+            return Not(In(clause.attribute, clause.valueset))
+    return clause
 
-    elif type(expression) is Or:
-        clauses = list({simplify_flat(cl) for cl in _flatten(expression.clauses, Or)})
-        assert len(clauses) > 0
-        if any(cl is True for cl in clauses):
-            return True
-        clauses = [cl for cl in clauses if cl is not False]
-        if len(clauses) == 0:   # Must have been all False
-            return False
-        return clauses[0] if len(clauses) == 1 else Or(cl for cl in clauses)
 
-    elif type(expression) is And:
+HANDLED_CLAUSES = (Le, Lt, Ge, Gt, In, NotIn)
 
-        clauses = list({simplify_flat(cl) for cl in _flatten(expression.clauses, And)})
-        if any(cl is False for cl in clauses):
-            return False
+
+def simplify_flat_and(expression):
+    ''' Simplify Le/Lt/Ge/Gt/Eq/In expressions joined by And clause. '''
+
+    if type(expression) is And:
 
         # Group expressions that can be simplified by attribute. Anything
         # not in scope for this algorithm is passed straight to output_clauses.
-        output_clauses = []
         by_attribute = collections.defaultdict(list)
-        for clause in clauses:
-            if type(clause) in (Le, Lt, Ge, Gt, In, NotIn):
+        other_clauses = []
+        for clause in (_normalise_input(cl) for cl in expression.clauses):
+            if type(clause) in HANDLED_CLAUSES:
                 by_attribute[clause.attribute].append(clause)
             else:
-                output_clauses.append(clause)
+                other_clauses.append(clause)
 
-        # Every clause encountered in this loop is Le/Lt/Ge/Gt/In/NotIn for the
+        # Every clause encountered in this loop is Le/Lt/Ge/Gt/In for the
         # given attribute.
+        output_clauses = []
         for attribute, clauses in by_attribute.items():
 
             # Find least upper, greatest lower, tightest set bounds for this attribute.
             lower_bound, upper_bound, in_clause = None, None, None
             for clause in clauses:
-                assert type(clause) in (Le, Lt, Ge, Gt, In, NotIn)
+                assert type(clause) in HANDLED_CLAUSES
                 if type(clause) in (Ge, Gt):
                     lower_bound = clause if lower_bound is None else max(
                         clause, lower_bound, key=lambda cl: (cl.value, type(cl) is Gt))
                 elif type(clause) in (Le, Lt):
                     upper_bound = clause if upper_bound is None else min(
                         clause, upper_bound, key=lambda cl: (cl.value, type(cl) is Le))
-                elif type(clause) in [In, NotIn]:
+                elif type(clause) in (In, NotIn):
                     in_clause = clause if in_clause is None else _simplify_in(in_clause, clause)
 
             # Process the resulting bounds on this attribute, adding the tightest
@@ -129,19 +113,17 @@ def simplify_flat(expression):
             # process can be short-circuited, ignoring other expressions and
             # returning False.
             if in_clause is not None:
-                if type(in_clause) is In:
-                    if lower_bound is not None:
-                        in_clause = In(attribute, [v for v in in_clause.valueset if _satisfies(v, lower_bound)])
-                    if upper_bound is not None:
-                        in_clause = In(attribute, [v for v in in_clause.valueset if _satisfies(v, upper_bound)])
-                    if len(in_clause.valueset) == 0:
-                        return False
-                    output_clauses.append(_normalise_in(in_clause))
-                elif type(in_clause) is NotIn:
-                    output_clauses.append(Not(_normalise_in(In(attribute, in_clause.valueset))))
-                else:
-                    assert False, repr(in_clause)
+                assert type(in_clause) in (In, NotIn)
+                if lower_bound is not None:
+                    in_clause = In(attribute, [v for v in in_clause.valueset if _satisfies(v, lower_bound)])
+                if upper_bound is not None:
+                    in_clause = In(attribute, [v for v in in_clause.valueset if _satisfies(v, upper_bound)])
+                if len(in_clause.valueset) == 0:
+                    return False
+                output_clauses.append(in_clause)
             else:
+                assert lower_bound is None or type(lower_bound) in (Ge, Gt)
+                assert upper_bound is None or type(upper_bound) in (Le, Lt)
                 if lower_bound is not None and upper_bound is not None:
                     if lower_bound.value == upper_bound.value:
                         if type(lower_bound) is Ge and type(upper_bound) is Le:
@@ -158,6 +140,7 @@ def simplify_flat(expression):
                     output_clauses.append(upper_bound)
 
         # Return composed result.
+        output_clauses = [_normalise_output(cl) for cl in output_clauses + other_clauses]
         assert len(output_clauses) > 0
         if any(cl is False for cl in output_clauses):
             return False
@@ -166,20 +149,4 @@ def simplify_flat(expression):
             return True
         return And(output_clauses) if len(output_clauses) > 1 else output_clauses[0]
 
-    return expression
-
-
-def _normalise_in(expression):
-    if type(expression) is In and len(expression.valueset) == 1:
-        return Eq(expression.attribute, next(iter(expression.valueset)))
-    return expression
-
-
-def simplify(expression):
-    ''' Don't rely on this except on expand_dnf cases just yet... '''
-    result = simplify_flat(expression)
-    if isinstance(result, NotIn):
-        return Not(_normalise_in(In(result.attribute, result.valueset)))
-    elif isinstance(result, In):
-        return _normalise_in(result)
-    return result
+    return _normalise_output(_normalise_input(expression))

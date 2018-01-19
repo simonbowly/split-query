@@ -34,7 +34,8 @@ def test_truth_table(expression, expected):
 
 
 @pytest.mark.parametrize('expression, result', [
-    (And(['a', 'b']), And(['a', 'b'])),
+    ('a', Or([And(['a'])])),
+    (And(['a', 'b']), Or([And(['a', 'b'])])),
     (Or(['a', 'b']), Or([
         And(['a', 'b']), And([Not('a'), 'b']), And(['a', Not('b')])])),
     (And(['a', Not('a')]),                          False),

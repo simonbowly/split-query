@@ -1,6 +1,7 @@
 
 import itertools
 
+from .algorithms import simplify_flat_and
 from .expressions import And, Not, Or
 from .simplify import simplify_tree
 from .traverse import get_clauses
@@ -43,9 +44,26 @@ def expand_dnf(expression):
         return True
     if all(result is False for _, result in _truth_table):
         return False
-    return simplify_tree(Or(
+    return Or(
         And((
             clause if truth else Not(clause)
             for clause, truth in assignment.items()))
         for assignment, result in _truth_table
-        if result is True))
+        if result is True)
+
+
+def expand_dnf_simplify(expression):
+    expanded = expand_dnf(expression)
+    if type(expanded) is Or:
+        assert len(expanded.clauses) > 0
+        assert all(type(cl) is And for cl in expanded.clauses)
+        clauses = [simplify_flat_and(cl) for cl in expanded.clauses]
+        if any(cl is True for cl in clauses):
+            return True
+        if all(cl is False for cl in clauses):
+            return False
+        clauses = list({cl for cl in clauses if cl is not False})
+        assert len(clauses) > 0
+        return clauses[0] if len(clauses) == 1 else Or(clauses)
+    assert expanded is True or expanded is False
+    return expanded

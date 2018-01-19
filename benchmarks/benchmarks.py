@@ -6,30 +6,30 @@ from datetime import datetime, timedelta
 import pandas as pd
 from tqdm import trange, tqdm
 
-from split_query.core import And, Or, Not, Eq, Le, Lt, Ge, Gt, In, Attribute, expand_dnf
-from split_query.core.algorithms import simplify
+from split_query.core import And, Or, Not, Eq, Le, Lt, Ge, Gt, In, Attribute
+from split_query.core.expand import expand_dnf_simplify as simplify
 
 ################ FUNCTIONS TO BENCHMARK ################
 
 def intersects(expr1, expr2):
     ''' Return whether e1 intersects with e2. '''
     expression = And([expr1, expr2])
-    expression = simplify(expand_dnf(expression))
+    expression = simplify(expression)
     return expression is not False
 
 def intersection(expr1, expr2):
     expression = And([expr1, expr2])
-    expression = simplify(expand_dnf(expression))
+    expression = simplify(expression)
     return expression
 
 def remains(expr1, expr2):
     expression = And([expr1, Not(expr2)])
-    expression = simplify(expand_dnf(expression))
+    expression = simplify(expression)
     return expression is not False
 
 def remainder(expr1, expr2):
     expression = And([expr1, Not(expr2)])
-    expression = simplify(expand_dnf(expression))
+    expression = simplify(expression)
     return expression
 
 ################# INPUT GENERATOR ######################

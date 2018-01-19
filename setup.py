@@ -18,7 +18,6 @@ REQUIRED = [
     'iso8601',
     'pandas',
     'pytz',
-    'sympy',
     'tables',
 ]
 
