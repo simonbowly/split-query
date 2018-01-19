@@ -37,6 +37,16 @@ TESTCASES_EXTRACT = [
         [
             (And([In(XVAR, [1]), In(YVAR, [4])]), dict(xtag=1, ytags={4})),
             ]),
+    (
+        And([Ge(XVAR, 3), Le(XVAR, 7)]),
+        [dict(
+            attr='x', type='range', key_lower='xl', key_upper='xu',
+            round_down=lambda x: x - (x%2), offset=lambda x: x + 2)],
+        [
+            (And([Ge(XVAR, 2), Le(XVAR, 4)]), dict(xl=2, xu=4)),
+            (And([Ge(XVAR, 4), Le(XVAR, 6)]), dict(xl=4, xu=6)),
+            (And([Ge(XVAR, 6), Le(XVAR, 8)]), dict(xl=6, xu=8)),
+            ]),
     ]
 
 

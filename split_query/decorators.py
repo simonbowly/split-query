@@ -46,11 +46,14 @@ def tag_parameter(attr, key=None, single=False):
     return dict(type='tag', attr=attr, key=key, single=single)
 
 
-def range_parameter(attr, key_lower=None, key_upper=None):
-    return dict(
+def range_parameter(attr, key_lower=None, key_upper=None, round_down=None, offset=None):
+    params = dict(
         type='range', attr=attr,
         key_lower=key_lower or attr + '_lower',
         key_upper=key_upper or attr + '_upper')
+    if round_down is not None:
+        params.update(round_down=round_down, offset=offset)
+    return params
 
 
 class ParameterWrapper(object):

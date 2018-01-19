@@ -59,10 +59,28 @@ def extract_parameters(expression, parameters):
             clause1, clause2 = sorted(clauses, key=lambda obj: obj.__class__.__name__)
             assert isinstance(clause1, Ge) or isinstance(clause1, Gt)
             assert isinstance(clause2, Le) or isinstance(clause2, Lt)
-            new_results = [(
-                [Ge(clause1.attribute, clause1.value), Le(clause2.attribute, clause2.value)], {
-                parameter['key_lower']: clause1.value,
-                parameter['key_upper']: clause2.value})]
+            if 'round_down' in parameter:
+                lower, upper = clause1.value, clause2.value
+                assert lower < upper
+                bounds = []
+                current = parameter['round_down'](lower)
+                while True:
+                    _next = parameter['offset'](current)
+                    bounds.append((current, _next))
+                    current = _next
+                    if current >= upper:
+                        break
+                new_results = [
+                    (
+                        [Ge(clause1.attribute, low), Le(clause2.attribute, high)], {
+                        parameter['key_lower']: low,
+                        parameter['key_upper']: high})
+                    for low, high in bounds]
+            else:
+                new_results = [(
+                    [Ge(clause1.attribute, clause1.value), Le(clause2.attribute, clause2.value)], {
+                    parameter['key_lower']: clause1.value,
+                    parameter['key_upper']: clause2.value})]
 
         else:
             raise ValueError()

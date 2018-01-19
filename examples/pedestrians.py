@@ -1,17 +1,12 @@
 
 from datetime import datetime
-import functools
 import logging
 
 import requests
 import pandas as pd
 from dateutil.parser import parse as parse_dt
 
-from split_query.core import (
-    Attribute, Ge, Le, Gt, Lt, And, Or, Eq, In, Not,
-    simplify_domain, traverse_expression)
-from split_query.remote import to_soql
-from split_query.decorators import cache_inmemory, cache_persistent, dataset
+from split_query.decorators import dataset, cache_persistent, remote_parameters, range_parameter, tag_parameter
 
 
 MAP_ID_NAME = {
@@ -88,25 +83,6 @@ def soda_query(domain, endpoint, **params):
             raise SoQLError('SoQL unknown error: {}'.format(data))
 
 
-def _widen_to_year(obj):
-    if isinstance(obj, Ge) and obj.attribute == Attribute('datetime'):
-        return Ge(Attribute('datetime'), datetime(obj.value.year, 1, 1))
-    if isinstance(obj, Le) and obj.attribute == Attribute('datetime'):
-        return Lt(Attribute('datetime'), datetime(obj.value.year + 1, 1, 1))
-    return obj
-
-
-def _map_soql_where(obj):
-    ''' Map a datetime query to numeric year only, convert In to OrEq. '''
-    if (isinstance(obj, Ge) or isinstance(obj, Gt)) and obj.attribute == Attribute('datetime'):
-        return Ge(Attribute('year'), obj.value.year)
-    if (isinstance(obj, Le) or isinstance(obj, Lt)) and obj.attribute == Attribute('datetime'):
-        return Le(Attribute('year'), obj.value.year)
-    if isinstance(obj, In) and obj.attribute == Attribute('sensor'):
-        return Or([Eq(Attribute('sensor_id'), MAP_NAME_ID[name]) for name in obj.valueset])
-    return obj
-
-
 def parse_remote(entry):
     return {
         'datetime': parse_dt(entry['daet_time']),
@@ -114,47 +90,52 @@ def parse_remote(entry):
         'sensor_id': int(entry['sensor_id'])}
 
 
+def paged_get(domain, endpoint, where, page=5000):
+    offset = 0
+    while True:
+        part = soda_query(domain, endpoint, where=where, limit=page, offset=offset)
+        for entry in part:
+            yield entry
+        if len(part) < page:
+            break
+        offset += page
+
+
 @dataset(
     name='Melbourne Pedestrian Counters',
     attributes=['datetime', 'hourly_count', 'sensor'])
-@cache_persistent('pedestrians')
-# @cache_inmemory()
-class PedestrianRemote(object):
-    ''' Hourly pedestrian counts from various intersections in Melbourne. '''
+@cache_persistent('melb_pedestrians')
+@remote_parameters(
+    range_parameter(
+        'datetime', key_lower='from_dt', key_upper='to_dt',
+        round_down=lambda dt: datetime(dt.year, 1, 1, 0, 0, 0),
+        offset=lambda dt: datetime(dt.year + 1, 1, 1, 0, 0, 0)),
+    tag_parameter('sensor', single=True))
+class PedestrianDataset(object):
+    ''' This docstring will be displayed in the dataset object repr. '''
 
-    def __init__(self):
-        self.actual_get = functools.partial(soda_query, 'data.melbourne.vic.gov.au', 'cb85-mn2u')
-        self.page = 50000
-
-    def paged_get(self, where):
-        offset = 0
-        while True:
-            part = self.actual_get(where=where, limit=self.page, offset=offset)
-            for entry in part:
-                yield entry
-            if len(part) < self.page:
-                break
-            offset += self.page
-
-    def get(self, expression):
-        actual = traverse_expression(expression, hook=_widen_to_year)
-        where = to_soql(simplify_domain(traverse_expression(
-            expression, hook=_map_soql_where)))
-        logging.info('REMOTE: ' + where)
-        result = pd.DataFrame(list(map(parse_remote, self.paged_get(where))))
+    def get(self, from_dt, to_dt, sensor):
+        assert from_dt == datetime(from_dt.year, 1, 1, 0, 0, 0)
+        assert to_dt == datetime(from_dt.year + 1, 1, 1, 0, 0, 0)
+        where = '(sensor_id = {}) and (year = {})'.format(
+            MAP_NAME_ID[sensor], from_dt.year)
+        logging.info('QUERY: {}'.format(where))
+        data = paged_get('data.melbourne.vic.gov.au', 'cb85-mn2u', where)
+        result = pd.DataFrame(list(map(parse_remote, data)))
+        logging.info('RECORDS: {}'.format(result.shape[0]))
+        if result.shape[0] == 0:
+            return pd.DataFrame(columns=['datetime', 'hourly_count', 'sensor'], data=[])
         result = result.join(
             MAP_ID_NAME, on='sensor_id').drop(
             columns=['sensor_id'])
-        return actual, result
+        return result
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    pedestrians = PedestrianRemote()
+    pedestrians = PedestrianDataset()
+    # pedestrians.clear_cache()
     filtered = pedestrians[
-        pedestrians.datetime.between(datetime(2015, 5, 3), datetime(2016, 2, 3)) &
+        pedestrians.datetime.between(datetime(2013, 2, 3), datetime(2017, 10, 3)) &
         pedestrians.sensor.isin(['Town Hall (West)', 'Southbank'])]
-    print(filtered.get().shape)
-    print(filtered.get().datetime.min())
-    print(filtered.get().datetime.max())
-    print(filtered.get().sensor.unique())
+    print(filtered.get().groupby('sensor').datetime.agg(['min', 'max', 'count']))
