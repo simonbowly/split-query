@@ -65,6 +65,13 @@ TESTCASES = [
     # Edge cases
     (~(x == 0) & x.isin([0]),       False),
     (~(x == 0) & (x == 0),          False),
+    # Found in cache tests, not 100% fixed.
+    (
+        (x >= 2014) & (x < 2015) & ~(x == 2015),
+        (x >= 2014) & (x < 2015)),
+    (
+        (x >= 2015) & (x <= 2015) & ~(x == 2015),
+        False),
 ]
 
 

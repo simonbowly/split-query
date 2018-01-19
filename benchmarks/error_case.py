@@ -5,13 +5,13 @@ logging.basicConfig(level=logging.INFO)
 
 import pandas as pd
 
-from split_query.decorators import dataset, cache_persistent, remote_parameters, range_parameter, tag_parameter
+from split_query.decorators import dataset, cache_inmemory, remote_parameters, range_parameter, tag_parameter
 
 
 @dataset(
     name='Melbourne Pedestrian Counters',
     attributes=['datetime', 'hourly_count', 'sensor'])
-@cache_persistent('error_case')
+@cache_inmemory()
 @remote_parameters(
     range_parameter(
         'datetime', key_lower='from_dt', key_upper='to_dt',

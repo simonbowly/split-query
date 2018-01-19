@@ -12,6 +12,11 @@ class NotIn(object):
         self.attribute = attribute
         self.valueset = valueset
 
+    def __repr__(self):
+        return '{}({},{})'.format(
+            self.__class__.__name__,
+            repr(self.attribute), repr(self.valueset))
+
 
 def _simplify_in(cl1, cl2):
     ''' Called with a pair of In/NotIn objects, returning a single clause. '''
@@ -112,8 +117,9 @@ def simplify_flat_and(expression):
             # bounds to output_clauses. If there are any conflicts found, the
             # process can be short-circuited, ignoring other expressions and
             # returning False.
-            if in_clause is not None:
-                assert type(in_clause) in (In, NotIn)
+            if type(in_clause) is In:
+                # Discrete values can be eliminated using the bounds, bound
+                # expressions not required in simplified result.
                 if lower_bound is not None:
                     in_clause = In(attribute, [v for v in in_clause.valueset if _satisfies(v, lower_bound)])
                 if upper_bound is not None:
@@ -122,6 +128,28 @@ def simplify_flat_and(expression):
                     return False
                 output_clauses.append(in_clause)
             else:
+                if type(in_clause) is NotIn:
+                    # Values only need to be kept if they are within the range bounds.
+                    valueset = in_clause.valueset
+                    if lower_bound is not None:
+                        valueset = [v for v in valueset if _satisfies(v, lower_bound)]
+                    if upper_bound is not None:
+                        valueset = [v for v in valueset if _satisfies(v, upper_bound)]
+                    # If there are no values, they were all redundant and this
+                    # clause can be skipped (but result is not False like the 'In' case).
+                    if len(valueset) > 0:
+                        if (
+                                (lower_bound is not None and upper_bound is not None) and
+                                (lower_bound.value == upper_bound.value) and
+                                all(v == lower_bound.value for v in valueset)):
+                            # REALLY weird special case.
+                            return False
+                        else:
+                            output_clauses.append(NotIn(attribute, valueset))
+                else:
+                    # 'In' case should have been handled in first branch.
+                    assert in_clause is None, in_clause
+                # Tightest range bounds.
                 assert lower_bound is None or type(lower_bound) in (Ge, Gt)
                 assert upper_bound is None or type(upper_bound) in (Le, Lt)
                 if lower_bound is not None and upper_bound is not None:
