@@ -3,21 +3,26 @@ import itertools
 
 from .algorithms import simplify_flat_and
 from .expressions import And, Not, Or
-from .simplify import simplify_tree
 from .traverse import get_clauses
 
 
-def substitute(expression, assignments):
-    ''' Make a substitution within the expression tree using the given
-    dictionary. Requires a value for every clause. '''
-    if isinstance(expression, And):
-        return And([substitute(cl, assignments) for cl in expression.clauses])
-    if isinstance(expression, Or):
-        return Or([substitute(cl, assignments) for cl in expression.clauses])
-    if isinstance(expression, Not):
-        return Not(substitute(expression.clause, assignments))
-    if expression is True or expression is False:
-        return expression
+def substitution_result(expression, assignments):
+    if expression is True:
+        return True
+    if expression is False:
+        return False
+    if type(expression) is And:
+        literals = [substitution_result(cl, assignments) for cl in expression.clauses]
+        assert all(l is True or l is False for l in literals)
+        return not any(l is False for l in literals)
+    if type(expression) is Or:
+        literals = [substitution_result(cl, assignments) for cl in expression.clauses]
+        assert all(l is True or l is False for l in literals)
+        return any(l is True for l in literals)
+    if type(expression) is Not:
+        literal = substitution_result(expression.clause, assignments)
+        assert literal is True or literal is False
+        return not literal
     return assignments[expression]
 
 
@@ -31,7 +36,7 @@ def truth_table(expression):
         dict(zip(clauses, assignment)) for assignment in
         itertools.product([True, False], repeat=len(clauses)))
     _truth_table = [
-        (assignment, simplify_tree(substitute(expression, assignment)))
+        (assignment, substitution_result(expression, assignment))
         for assignment in assignments]
     assert set(result for _, result in _truth_table).issubset({True, False})
     return _truth_table

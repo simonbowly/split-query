@@ -1,6 +1,5 @@
 
 from builtins import super
-
 from contextlib import closing
 import json
 import logging
@@ -11,8 +10,18 @@ import uuid
 import pandas as pd
 
 from .core import And, Or, Not, expand_dnf, default, object_hook
-from .core.expand import expand_dnf_simplify as simplify
+from .core.expand import expand_dnf_simplify
 from .engine import query_df
+
+
+try:
+    from functools import lru_cache
+    @lru_cache()
+    def simplify(expression):
+        ''' Speeds up cache return for repeated calls. '''
+        return expand_dnf_simplify(expression)
+except ImportError:
+    simplify = expand_dnf_simplify
 
 
 class MinimalCache(object):
