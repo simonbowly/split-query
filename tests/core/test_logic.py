@@ -85,3 +85,57 @@ def test_simplify_tree_literal(expression):
         event("True")
     elif result is False:
         event("False")
+
+
+simple = st.sampled_from('abcd') | st.sampled_from('abcd').map(Not)
+flat_and = st.lists(simple, min_size=2).map(And)
+dnf = st.lists(flat_and, min_size=2).map(Or)
+
+
+@given(simple)
+def test_simple(expression):
+    assert is_simple(expression)
+    assert is_flat_and(expression)
+    assert is_dnf(expression)
+
+
+@given(flat_and)
+def test_flat_and(expression):
+    assert not is_simple(expression)
+    assert is_flat_and(expression)
+    assert is_dnf(expression)
+
+
+@given(dnf)
+def test_dnf(expression):
+    assert not is_simple(expression)
+    assert not is_flat_and(expression)
+    assert is_dnf(expression)
+
+
+varied_flat_and = st.lists(simple, min_size=1).map(lambda clauses: clauses[0] if len(clauses) == 1 else And(clauses))
+varied_dnf = st.lists(varied_flat_and, min_size=1).map(lambda clauses: clauses[0] if len(clauses) == 1 else Or(clauses))
+
+
+@given(varied_dnf, varied_dnf | varied_flat_and.map(Not))
+def test_heuristic(expression1, expression2):
+    # Input stats.
+    if is_simple(expression1) or is_simple(expression2):
+        event('Simple')
+    elif is_flat_and(expression1) or is_flat_and(expression2):
+        event('Flat AND')
+    elif is_dnf(expression1) or is_dnf(expression2):
+        event('DNF')
+    # Algebraic expansion result.
+    expression = And([expression1, expression2])
+    result = to_dnf_expand_heuristic(expression)
+    assert is_dnf(result)
+    # Truth table expansion of both (logical equivalence).
+    expand_original = to_dnf_expand_truth_table(expression)
+    expand_transformed = to_dnf_expand_truth_table(result)
+    assert isinstance(expand_original, Or) and is_dnf(expand_original)
+    assert isinstance(expand_transformed, Or) and is_dnf(expand_transformed)
+    # Order is not reliable, so require set of sets comparison.
+    s1 = frozenset(frozenset(cl.clauses) for cl in expand_original.clauses)
+    s2 = frozenset(frozenset(cl.clauses) for cl in expand_transformed.clauses)
+    assert s1 == s2

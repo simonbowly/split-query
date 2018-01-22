@@ -45,10 +45,6 @@ class ConditionalRelation(Expression):
     def __hash__(self):
         return hash((self.__class__.__name__, self.attribute, self.value))
 
-    @property
-    def expr(self):
-        return self.__class__.__name__.lower()
-
 
 class Eq(ConditionalRelation):
     ''' Binary expression: attribute == value. '''

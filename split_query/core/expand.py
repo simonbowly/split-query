@@ -3,20 +3,14 @@ import itertools
 
 from .domain import simplify_flat_and
 from .expressions import And, Not, Or
-from .logic import to_dnf_clauses
+from .logic import to_dnf_expand_truth_table, to_dnf_expand_heuristic, simplify_tree, is_dnf
 
 
 def to_dnf_simplified(expression):
-    clauses = []
-    for clause in to_dnf_clauses(expression):
-        clause = simplify_flat_and(clause)
-        if clause is True:
-            return True
-        elif clause is False:
-            continue
-        else:
-            clauses.append(clause)
-    if len(clauses) == 0:
-        # All must have been False
-        return False
-    return Or(clauses)
+    expression = simplify_tree(expression)
+    try:
+        dnf = to_dnf_expand_heuristic(expression)
+    except:
+        dnf = to_dnf_expand_truth_table(expression)
+    return simplify_tree(Or(
+        simplify_flat_and(clause) for clause in dnf.clauses))

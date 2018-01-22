@@ -2,7 +2,7 @@
 
 import itertools
 
-from .expressions import And, Or, Not
+from .expressions import And, Or, Not, LogicalRelation
 
 
 def simplify_tree(expression):
@@ -89,3 +89,44 @@ def to_dnf_clauses(expression):
     return (
         And(clause) for clause, result in truth_table_clauses(expression)
         if result is True)
+
+
+def to_dnf_expand_truth_table(expression):
+    return Or(to_dnf_clauses(expression))
+
+
+def is_simple(expression):
+    return (not isinstance(expression, LogicalRelation)) or (
+        isinstance(expression, Not) and is_simple(expression.clause))
+
+
+def is_flat_and(expression):
+    return is_simple(expression) or (
+        isinstance(expression, And) and
+        all(is_simple(cl) for cl in expression.clauses))
+
+
+def is_dnf(expression):
+    return is_flat_and(expression) or (
+        isinstance(expression, Or) and
+        all(is_flat_and(cl) for cl in expression.clauses))
+
+
+def to_dnf_expand_heuristic(expression):
+    assert isinstance(expression, And)
+    parts = []  # Will be a list of Or([And[e1, e2]])
+    for clause in expression.clauses:
+        if is_simple(clause):
+            parts.append(Or([And([clause])]))
+        elif is_flat_and(clause):
+            parts.append(Or([clause]))
+        elif is_dnf(clause):
+            parts.append(Or(cl if type(cl) is And else And([cl]) for cl in clause.clauses))
+        elif isinstance(clause, Not) and is_flat_and(clause.clause):
+            parts.append(Or([And([Not(cl)]) for cl in clause.clause.clauses]))
+        else:
+            assert False
+    assert all(type(part) is Or and all(type(cl) is And for cl in part.clauses) for part in parts)
+    return Or(
+        And(itertools.chain(*(clause.clauses for clause in clauses))) for clauses in
+        itertools.product(*(part.clauses for part in parts)))
