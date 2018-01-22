@@ -2,8 +2,7 @@
 Currently only a pandas-type interface, where the dataset can be accessed
 as if it is contained in a single dataframe. '''
 
-from .core.expressions import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or
-from .core.simplify import simplify_tree
+from .core import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or, simplify_tree
 
 
 class AttributeContainer(object):

@@ -10,19 +10,16 @@ import uuid
 
 import pandas as pd
 
-from .core import And, Or, Not, expand_dnf, default, object_hook
-from .core.expand import expand_dnf_simplify
+from .core import And, Or, Not, to_dnf_simplified, default, object_hook
 from .engine import query_df
 
 
-try:
-    from functools import lru_cache
-    @lru_cache()
-    def simplify(expression):
-        ''' Speeds up cache return for repeated calls. '''
-        return expand_dnf_simplify(expression)
-except ImportError:
-    simplify = expand_dnf_simplify
+def simplify(expression):
+    ''' Speeds up cache return for repeated calls. '''
+    result = to_dnf_simplified(expression)
+    if type(result) is Or and len(result.clauses) == 1:
+        return result.clauses[0]
+    return result
 
 
 class MinimalCache(object):

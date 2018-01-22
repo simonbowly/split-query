@@ -1,8 +1,8 @@
 
 import pytest
 
-from split_query.core import Attribute, And, In, Ge, Le, Lt, Gt, Not, Eq
-from split_query.extract import extract_parameters, with_only_fields, split_parameters
+from split_query.core import Attribute, And, Or, Not, In, Ge, Le, Lt, Gt, Eq
+from split_query.extract import extract_parameters, split_parameters
 
 
 XVAR = Attribute('x')
@@ -54,20 +54,6 @@ TESTCASES_EXTRACT = [
 def test_extract_parameters(expression, parameters, expected):
     result = extract_parameters(expression, parameters)
     assert result == expected
-
-
-A = Attribute('a')
-B = Attribute('b')
-
-
-@pytest.mark.parametrize('expression, only, result', [
-    (And([Lt(A, 2), Gt(B, 3)]), [], True),
-    (And([Lt(A, 2), Gt(B, 3)]), ['a'], Lt(A, 2)),
-    (And([Lt(A, 2), Gt(B, 3)]), ['b'], Gt(B, 3)),
-    (And([Lt(A, 2), Gt(B, 3)]), ['a', 'b', 'c'], And([Lt(A, 2), Gt(B, 3)])),
-    ])
-def test_with_only_fields(expression, only, result):
-    assert with_only_fields(expression, only) == result
 
 
 TESTCASES_SPLIT = [

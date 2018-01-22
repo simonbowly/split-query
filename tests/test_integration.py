@@ -18,8 +18,8 @@ import pytest
 from hypothesis import assume, event, given
 
 from split_query.engine import query_df
-from split_query.core import Attribute, expand_dnf, get_clauses, simplify_tree
-from split_query.core.expand import expand_dnf_simplify
+from split_query.core import Attribute, to_dnf_simplified
+from split_query.core.logic import get_variables
 from .core.strategies import continuous_numeric_relation, expression_trees
 
 x, y, z = [Attribute(n) for n in 'xyz']
@@ -37,9 +37,8 @@ SOURCE_3D = pd.DataFrame(columns=['x', 'y', 'z'], data=list(_data)).apply(_func,
 def test_simplified_query(expression):
     ''' Fuzz everything! Checks that a simplified expression returns the
     same result as the original using the pandas engine. '''
-    assume(len(get_clauses(expression)) < 5)
-    expression = simplify_tree(expression)
-    expression_simplified = expand_dnf_simplify(expression)
+    assume(len(get_variables(expression)) < 5)
+    expression_simplified = to_dnf_simplified(expression)
     result = query_df(SOURCE_3D, expression)
     result_simplified = query_df(SOURCE_3D, expression)
     assert set(result['point']) == set(result_simplified['point'])

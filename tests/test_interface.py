@@ -6,8 +6,7 @@ import pytest
 import mock
 
 from split_query.interface import DataSet
-from split_query.core.expressions import (And, Attribute, Eq, Ge, Gt, In, Le, Lt,
-                                     Not, Or)
+from split_query.core import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or
 
 
 def filter_test(test_func):

@@ -1,8 +1,7 @@
 
 from collections import defaultdict
 from itertools import product, chain
-from .core import And, In, Eq, Le, Lt, Ge, Gt, simplify_tree, traverse_expression, Or
-from .core.expand import expand_dnf_simplify
+from .core import And, Or, Not, In, Eq, Le, Lt, Ge, Gt, to_dnf_simplified, simplify_tree
 
 
 def extract_parameters(expression, parameters):
@@ -97,30 +96,15 @@ def extract_parameters(expression, parameters):
         for clauses, kwargs in results]
 
 
-def hook_only(attribute_names):
-    def _hook_only(obj):
-        if any(isinstance(obj, t) for t in [Eq, Le, Lt, Ge, Gt, In]):
-            if obj.attribute.name not in attribute_names:
-                return True
-        return obj
-    return _hook_only
-
-
-def with_only_fields(expression, attributes):
-    ''' Return a new expression which filters only on the given attribute names. '''
-    return simplify_tree(traverse_expression(expression, hook=hook_only(attributes)))
-
-
 def split_parameters(expression, parameters):
     ''' Adds some wrapping around extract_parameters to trim unnecessary
     filters and expand to DNF form. '''
 
     # Retain only filters which affect the given parameters.
     attributes = [param['attr'] for param in parameters]
-    expression = with_only_fields(expression, attributes)
 
     # Break query into subqueries for extract_parameters.
-    expanded = expand_dnf_simplify(expression)
+    expanded = to_dnf_simplified(expression)
     if isinstance(expanded, And):
         subqueries = [expanded]
     elif isinstance(expanded, Or):

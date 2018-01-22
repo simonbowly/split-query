@@ -4,10 +4,12 @@ from builtins import super
 
 
 class Expression(object):
+    ''' Base class for all expression objects. '''
     pass
 
 
 class Attribute(Expression):
+    ''' Class representing a named attribute in a dataset. '''
 
     def __init__(self, name):
         self.name = name
@@ -22,7 +24,8 @@ class Attribute(Expression):
         return hash(self.name)
 
 
-class AttributeRelation(Expression):
+class ConditionalRelation(Expression):
+    ''' Class representing a condition on values in the data. '''
 
     def __init__(self, attribute, value):
         self.attribute = attribute
@@ -35,7 +38,7 @@ class AttributeRelation(Expression):
 
     def __eq__(self, other):
         return (
-            isinstance(other, self.__class__) and
+            (type(self) == type(other)) and
             (self.attribute == other.attribute) and
             (self.value == other.value))
 
@@ -47,36 +50,36 @@ class AttributeRelation(Expression):
         return self.__class__.__name__.lower()
 
 
-class Eq(AttributeRelation):
+class Eq(ConditionalRelation):
     ''' Binary expression: attribute == value. '''
     pass
 
 
-class Le(AttributeRelation):
+class Le(ConditionalRelation):
     ''' Binary expression: attribute <= value. '''
     pass
 
 
-class Lt(AttributeRelation):
+class Lt(ConditionalRelation):
     ''' Binary expression: attribute < value. '''
     pass
 
 
-class Ge(AttributeRelation):
+class Ge(ConditionalRelation):
     ''' Binary expression: attribute >= value. '''
     pass
 
 
-class Gt(AttributeRelation):
+class Gt(ConditionalRelation):
     ''' Binary expression: attribute > value. '''
     pass
 
 
-class In(AttributeRelation):
-    ''' Binary expression: attribute is in value. '''
+class In(ConditionalRelation):
+    ''' Binary expression: attribute is in [values]. '''
 
     def __init__(self, attribute, valueset):
-        super().__init__(attribute, frozenset(valueset))
+        super().__init__(attribute, tuple(valueset))
 
     @property
     def valueset(self):
@@ -84,7 +87,7 @@ class In(AttributeRelation):
 
 
 class LogicalRelation(Expression):
-    ''' Injects a named-class repr method for And/Or. '''
+    ''' Class representing logical And/Or/Not compositions. '''
     pass
 
 

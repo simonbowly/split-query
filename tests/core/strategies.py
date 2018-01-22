@@ -10,27 +10,6 @@ from split_query.core.expressions import (
     Attribute, And, Or, Not, Eq, Le, Lt, Ge, Gt, Eq, In)
 
 
-def unique_expressions():
-    ''' All pairwise comparisons of elements in this generator should be found
-    to be unequal. This is an important property of the immutable expression
-    objects to ensure they can be sensibly used as unique descriptions of data.
-    '''
-    yield Attribute('x')
-    for relation, attr, value in itertools.product(
-            [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
-        yield relation(attr, value)
-    for relation, attr, value in itertools.product(
-            [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
-        yield Not(relation(attr, value))
-    yield In(Attribute('x'), ['a', 'b'])
-    yield And(['a', 'b'])
-    yield And(['a', 'c'])
-    yield Or(['a', 'b'])
-    yield Or(['a', 'c'])
-    yield Not('a')
-    yield Not('b')
-
-
 class PrettyRecursiveStrategy(RecursiveStrategy):
     ''' Alternative to st.recursive, produces a nicer repr so it doesn't get
     in the way of reading --hypothesis-show-statistics output. '''
@@ -39,7 +18,8 @@ class PrettyRecursiveStrategy(RecursiveStrategy):
 
 
 def _link_clauses(clauses):
-    ''' Used in recursive generation strategy: link branches by And/Or/Not. '''
+    ''' Used in recursive generation strategy: link branches by And/Or/Not. 
+    TODO can this return e.g. Not(Eq(x, 1)) ?? '''
     linked = st.one_of(
         st.lists(clauses, min_size=1).map(And),
         st.lists(clauses, min_size=1).map(Or))
@@ -63,11 +43,10 @@ def expression_trees(variables, max_depth, min_width, max_width):
 
 
 def continuous_numeric_relation(name):
-    ''' Continuous numeric relations on the given attribute name. '''
+    ''' Inequality relations with numeric data. '''
     attr = Attribute(name)
     values = st.integers(min_value=-10, max_value=10)
     return st.one_of([
-        values.map(lambda val: Eq(attr, val)),
         values.map(lambda val: Le(attr, val)),
         values.map(lambda val: Lt(attr, val)),
         values.map(lambda val: Ge(attr, val)),
@@ -76,13 +55,12 @@ def continuous_numeric_relation(name):
 
 
 def datetime_relation(name, timezones=None):
-    ''' Datetime relations on the given attribute name. '''
+    ''' Inequality relations with datetime data. '''
     attr = Attribute(name)
     values = (
         st.datetimes() if timezones is None
         else st.datetimes(timezones=timezones))
     return st.one_of([
-        values.map(lambda val: Eq(attr, val)),
         values.map(lambda val: Le(attr, val)),
         values.map(lambda val: Lt(attr, val)),
         values.map(lambda val: Ge(attr, val)),
@@ -90,25 +68,24 @@ def datetime_relation(name, timezones=None):
     ])
 
 
-def discrete_relation(name):
-    ''' Discrete relations on the given attribute name. '''
+def discrete_string_relation(name):
+    ''' Discrete relations (In/Eq) on tag-like string data. '''
     attr = Attribute(name)
-    return st.lists(st.integers(min_value=-10, max_value=10), min_size=1).map(
-        lambda valueset: In(attr, valueset))
+    values = st.text(printable, min_size=1, max_size=10)
+    return st.one_of(
+        values.map(lambda val: Eq(attr, val)),
+        st.lists(values, min_size=1).map(
+            lambda valueset: In(attr, valueset)))
 
 
-def structured_3d_expressions(max_leaves=100):
-    ''' Generate expressions which are relevant for testing simplification and queries.
-    The result can contain the following relations:
-
-        Continuous Eq, Lt, Le, Gt, Ge numeric filters on 'x'.
-        Continuous Eq, Lt, Le, Gt, Ge datetime filters on 'datetime'.
-        Discrete In filters on 'id'.
-
-    '''
-    relations = st.one_of(
-        continuous_numeric_relation('x'),
-        discrete_relation('id'),
-        datetime_relation('dt'),
-        datetime_relation('dt-tz', timezones=st.just(pytz.utc)))
-    return expression_recursive(relations, max_leaves=max_leaves)
+def mixed_numeric_relation(name):
+    attr = Attribute(name)
+    values = st.integers(min_value=-10, max_value=10)
+    return st.one_of([
+        values.map(lambda val: Eq(attr, val)),
+        values.map(lambda val: Le(attr, val)),
+        values.map(lambda val: Lt(attr, val)),
+        values.map(lambda val: Ge(attr, val)),
+        values.map(lambda val: Gt(attr, val)),
+        st.lists(values, min_size=1).map(lambda val: In(attr, val)),
+    ])

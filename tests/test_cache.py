@@ -19,7 +19,7 @@ import pandas as pd
 import pytest
 
 from split_query.cache import minimal_cache_inmemory, minimal_cache_persistent
-from split_query.core.expressions import And, Or, Not, Le, Lt, Ge, Gt, Attribute
+from split_query.core import And, Or, Not, Le, Lt, Ge, Gt, Attribute
 from split_query.engine import query_df
 
 

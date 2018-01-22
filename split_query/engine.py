@@ -3,7 +3,7 @@ import functools
 
 import pandas as pd
 
-from .core.expressions import And, Eq, Ge, Gt, In, Le, Lt, Not, Or
+from .core import And, Eq, Ge, Gt, In, Le, Lt, Not, Or
 
 
 def map_query_df(df, query):

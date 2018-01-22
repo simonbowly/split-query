@@ -6,8 +6,8 @@ import datetime
 import iso8601
 
 from .expressions import (
-    Attribute, AttributeRelation, And, Or, Not,
-    Eq, Ge, Gt, In, Le, Lt)
+    Attribute, And, Or, Not,
+    ConditionalRelation, Eq, Ge, Gt, In, Le, Lt)
 
 
 def default(obj):
@@ -15,7 +15,7 @@ def default(obj):
     byte representation will not be consistent. '''
     if isinstance(obj, Attribute):
         return dict(expr='attr', name=obj.name)
-    if isinstance(obj, AttributeRelation):
+    if isinstance(obj, ConditionalRelation):
         return dict(
             expr=obj.__class__.__name__.lower(),
             attribute=obj.attribute, value=obj.value)
@@ -25,8 +25,6 @@ def default(obj):
         return dict(expr='or', clauses=obj.clauses)
     if isinstance(obj, Not):
         return dict(expr='not', clause=obj.clause)
-    if isinstance(obj, frozenset):
-        return list(obj)
     if isinstance(obj, datetime.datetime):
         return {'dt': True, 'data': obj.isoformat(), 'naive': obj.tzinfo is None}
     return obj

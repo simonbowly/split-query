@@ -1,46 +1,49 @@
 ''' Tests expression object representation and serialisation methods. '''
 
 import itertools
-import json
 
-import msgpack
 from hypothesis import given
 
-from split_query.core import default, object_hook
-from .strategies import (structured_3d_expressions, unique_expressions)
+from split_query.core.expressions import Attribute, Le, Lt, Ge, Gt, Eq, In, And, Or, Not
+from .strategies import *
 
 
-def test_not_equal():
-    ''' Compare all combinations in the set for equality clashes. The
-    implementation of expressions uses frozendicts to store data should
-    guarantee this, so it is partly a stupidity check and partly a regresion
-    test in case of implementation change. '''
+def unique_expressions():
+    ''' Pairwise combinations which should be unequal. '''
+    yield Attribute('x')
+    yield Attribute('y') 
+    for relation, attr, value in itertools.product(
+            [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
+        yield relation(attr, value)
+    for relation, attr, value in itertools.product(
+            [Le, Lt, Ge, Gt, Eq], ['x', 'y'], [1, 2]):
+        yield Not(relation(attr, value))
+    yield In(Attribute('x'), ['a', 'b'])
+    yield And(['a', 'b'])
+    yield And(['a', 'c'])
+    yield Or(['a', 'b'])
+    yield Or(['a', 'c'])
+    yield Not('a')
+    yield Not('b')
+
+
+def test_collisions():
+    ''' Compare all combinations in the set for equality clashes and hash
+    collisions. '''
     for a, b in itertools.combinations(unique_expressions(), 2):
         assert a != b
         assert not a == b
         assert not hash(a) == hash(b)
+        assert not repr(a) == repr(b)
 
 
-@given(structured_3d_expressions())
+@given(expression_recursive(
+    st.one_of(
+        continuous_numeric_relation('x'),
+        discrete_string_relation('tag'),
+        datetime_relation('dt'),
+        datetime_relation('dt-tz', timezones=st.just(pytz.utc))),
+    max_leaves=100))
 def test_expressions(expression):
-    ''' Test operations on immutable expression objects. Any constructed
-    expression should be hashable, repr-able and serialisable.
-
-    Satisfied that fuzzing is enough to check for errors at the moment, but
-    intend to add fixed tests (maybe just for JSON) if there is to be a stable
-    serialisation format for expressions (e.g. for passing to services, etc).
-    '''
     assert isinstance(hash(expression), int)
     assert isinstance(repr(expression), str)
-    # Serialisation with json
-    strung = json.dumps(expression, default=default)
-    assert isinstance(strung, str)
-    unstrung = json.loads(strung, object_hook=object_hook)
-    assert unstrung == expression
-    # Serialisation with msgpack
-    packed = msgpack.packb(
-        expression, default=default, use_bin_type=True)
-    assert isinstance(packed, bytes)
-    unpacked = msgpack.unpackb(
-        packed, object_hook=object_hook, encoding='utf-8')
-    assert unpacked == expression

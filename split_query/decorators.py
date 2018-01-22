@@ -4,9 +4,9 @@ import os
 
 import appdirs
 
-from split_query.cache import minimal_cache_inmemory, minimal_cache_persistent
-from split_query.interface import DataSet
-from split_query.extract import split_parameters
+from .cache import minimal_cache_inmemory, minimal_cache_persistent
+from .interface import DataSet
+from .extract import split_parameters
 
 
 def cache_inmemory():

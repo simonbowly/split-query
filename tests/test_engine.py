@@ -9,8 +9,7 @@ import pytest
 import pytz
 
 from split_query.engine import query_df
-from split_query.core.expressions import (
-    And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or)
+from split_query.core import And, Attribute, Eq, Ge, Gt, In, Le, Lt, Not, Or
 
 
 x, y = [Attribute(n) for n in 'xy']
