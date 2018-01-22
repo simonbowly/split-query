@@ -92,7 +92,7 @@ class And(LogicalRelation):
     ''' Logical expression linking clauses with AND. '''
 
     def __init__(self, clauses):
-        self.clauses = frozenset(clauses)
+        self.clauses = tuple(clauses)
 
     def __repr__(self):
         return 'AND({})'.format(repr(list(self.clauses)))
@@ -108,7 +108,7 @@ class Or(LogicalRelation):
     ''' Logical expression linking clauses with OR. '''
 
     def __init__(self, clauses):
-        self.clauses = frozenset(clauses)
+        self.clauses = tuple(clauses)
 
     def __repr__(self):
         return 'OR({})'.format(repr(list(self.clauses)))

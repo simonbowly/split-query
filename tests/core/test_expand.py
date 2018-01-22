@@ -45,7 +45,11 @@ def test_truth_table(expression, expected):
 ])
 def test_expand_dnf(expression, result):
     ''' Test complete expansion of simple relations to DNF. '''
-    assert expand_dnf(expression) == result
+    expanded = expand_dnf(expression)
+    if isinstance(result, Or):
+        assert set(result.clauses) == set(expanded.clauses)
+    else:
+        assert expanded == result
 
 
 @given(st.sampled_from(['abc', 'abcdef']).flatmap(lambda names: expression_trees(

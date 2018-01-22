@@ -12,12 +12,10 @@ def substitution_result(expression, assignments):
     if expression is False:
         return False
     if type(expression) is And:
-        literals = [substitution_result(cl, assignments) for cl in expression.clauses]
-        assert all(l is True or l is False for l in literals)
+        literals = (substitution_result(cl, assignments) for cl in expression.clauses)
         return not any(l is False for l in literals)
     if type(expression) is Or:
-        literals = [substitution_result(cl, assignments) for cl in expression.clauses]
-        assert all(l is True or l is False for l in literals)
+        literals = (substitution_result(cl, assignments) for cl in expression.clauses)
         return any(l is True for l in literals)
     if type(expression) is Not:
         literal = substitution_result(expression.clause, assignments)

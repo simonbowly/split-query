@@ -19,8 +19,8 @@ ASSIGNMENTS = {'a': True, 'b': False, 'c': True}
     (Eq(Attribute('x'), 0),     {Attribute('x'), 0, Eq(RV, RV)}),
     (Ge('x', 0),                {'x', 0, Ge(RV, RV)}),
     (In('y', [0, 1, 2]),        {'y', 0, 1, 2, In(RV, [RV])}),
-    (And(['a', 'b', 'c']),      {'a', 'b', 'c', And(['out'])}),
-    (Or(['a', 'b', 'c']),       {'a', 'b', 'c', Or(['out'])}),
+    (And(['a', 'b', 'c']),      {'a', 'b', 'c', And(['out', 'out', 'out'])}),
+    (Or(['a', 'b', 'c']),       {'a', 'b', 'c', Or(['out', 'out', 'out'])}),
     (Not('x'),                  {'x', Not(RV)}),
 ])
 def test_traverse_expression(expression, hook_calls):
