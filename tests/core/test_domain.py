@@ -5,7 +5,7 @@ from hypothesis import event, given, strategies as st
 
 from split_query.core import Attribute, And, Not
 from split_query.core.domain import simplify_flat_and
-from split_query.interface import AttributeContainer, ExpressionContainer
+from split_query.core.wrappers import AttributeContainer, ExpressionContainer
 from .strategies import mixed_numeric_relation
 
 x = AttributeContainer(Attribute('x'))
@@ -44,6 +44,7 @@ TESTCASES = [
     ((x > 1) & ~(x > 0),            False),
     # Any unhandled expression is included without change.
     ((x > 0) & (x > 1) & other,     (x > 1) & other),
+    ((x > 0) & (x > 1) & ~other,    (x > 1) & ~other),
     # Set expressions.
     (
         x.isin([1, 2, 3]) & x.isin([2, 3, 4]),
@@ -65,7 +66,10 @@ TESTCASES = [
     # Edge cases
     (~(x == 0) & x.isin([0]),       False),
     (~(x == 0) & (x == 0),          False),
-    # Found in cache tests, not 100% fixed.
+    (~(~(x == 0)) & (y == 0),       (x == 0) & (y == 0)),
+    (And([True]),                   True),
+    (And([False]),                  False),
+    # Found in cache tests.
     (
         (x >= 2014) & (x < 2015) & ~(x == 2015),
         (x >= 2014) & (x < 2015)),
@@ -77,10 +81,14 @@ TESTCASES = [
 
 @pytest.mark.parametrize('expression, simplified', TESTCASES)
 def test_simplify_flat_and(expression, simplified):
-    expression = expression.wrapped
+    ''' Obviously simplifiable cases to define algorithm behaviour. Should be
+    reducible to a simpler set. '''
+    if type(expression) is ExpressionContainer:
+        expression = expression.wrapped
     if type(simplified) is ExpressionContainer:
         simplified = simplified.wrapped
     result = simplify_flat_and(expression)
+    # Output order is not well defined, so handle equality comparison with sets.
     if type(simplified) is And:
         assert type(result) is And
         assert set(result.clauses) == set(simplified.clauses)
@@ -93,9 +101,11 @@ def test_simplify_flat_and(expression, simplified):
     mixed_numeric_relation('x'),
     mixed_numeric_relation('x').map(lambda e: Not(e)),
     mixed_numeric_relation('y'),
-    mixed_numeric_relation('y').map(lambda e: Not(e))
+    mixed_numeric_relation('y').map(lambda e: Not(e)),
     ), min_size=1))
 def test_simplify_flat_and_fuzz(clauses):
+    ''' Currently a simple error check, but this should really validate
+    algorithm guarantees by checking against a data set. '''
     result = simplify_flat_and(And(clauses))
     n_output = len(result.clauses) if type(result) is And else 1
     assert n_output <= len(clauses)

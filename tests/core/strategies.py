@@ -79,6 +79,7 @@ def discrete_string_relation(name):
 
 
 def mixed_numeric_relation(name):
+    ''' Combined inequality and discrete relations on numeric data. '''
     attr = Attribute(name)
     values = st.integers(min_value=-10, max_value=10)
     return st.one_of([

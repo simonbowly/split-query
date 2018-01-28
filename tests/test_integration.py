@@ -9,6 +9,8 @@ TODO
 This requires some more thinking: the granulatiry of the data needs to be
 higher, and offset from the possible query bounds? But that may mean we can't
 properly assert the difference between Ge and Gt, sooo.... thinking time.
+* Don't use pandas - check data in python so this can go in the expressions test package.
+* This isn't hitting the truth table expansion function!!
 '''
 
 import itertools

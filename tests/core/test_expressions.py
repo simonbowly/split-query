@@ -45,5 +45,6 @@ def test_collisions():
         datetime_relation('dt-tz', timezones=st.just(pytz.utc))),
     max_leaves=100))
 def test_expressions(expression):
+    ''' Ensure any complex nested expression is still hashable. '''
     assert isinstance(hash(expression), int)
     assert isinstance(repr(expression), str)

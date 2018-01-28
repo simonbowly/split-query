@@ -1,25 +1,20 @@
+'''
+Algorithms to simplify domain relationships in conditional expressions.
+    - simplify_flat_and
+'''
 
 import collections
-import itertools
 
-from .expressions import And, Or, Not, Le, Lt, Ge, Gt, Eq, In, Attribute
+from .expressions import And, Not, Le, Lt, Ge, Gt, Eq, In
 
 
-class NotIn(object):
-    ''' promote this to expressions? '''
-
-    def __init__(self, attribute, valueset):
-        self.attribute = attribute
-        self.valueset = valueset
-
-    def __repr__(self):
-        return '{}({},{})'.format(
-            self.__class__.__name__,
-            repr(self.attribute), repr(self.valueset))
+# Placeholder expression object, never returned as part of an expression.
+NotIn = collections.namedtuple('NotIn', ['attribute', 'valueset'])
 
 
 def _simplify_in(cl1, cl2):
-    ''' Called with a pair of In/NotIn objects, returning a single clause. '''
+    ''' Reduce And(cl1, cl2) to a single relation where both inputs are
+    In/NotIn relations. '''
     assert type(cl1) in [In, NotIn] and type(cl2) in [In, NotIn]
     assert cl1.attribute == cl2.attribute
     if type(cl1) is In and type(cl2) is In:
@@ -30,10 +25,12 @@ def _simplify_in(cl1, cl2):
         if type(cl1) is NotIn:
             cl1, cl2 = cl2, cl1
         return In(cl1.attribute, set(cl1.valueset).difference(set(cl2.valueset)))
-    assert False, 'Invalid _simplify_in input: {}, {}'.format(cl1, cl2)
+    raise ValueError('Invalid _simplify_in input: {}, {}'.format(cl1, cl2))
 
 
 def _satisfies(value, inequality):
+    ''' Return whether :value satisfies the relation given by :inequality.
+    Raises ValueError if :inequality is not an inequality relation. '''
     _type = type(inequality)
     if _type is Ge:
         return value >= inequality.value
@@ -43,14 +40,16 @@ def _satisfies(value, inequality):
         return value <= inequality.value
     if _type is Lt:
         return value < inequality.value
-    assert False, 'Invalid _satisfies input: {}, {}'.format(value, inequality)
+    raise ValueError('Invalid _satisfies input: {}, {}'.format(value, inequality))
 
 
 def _normalise_input(clause):
+    ''' Reduce simple negation cases. Convert Eq to In expressions for simpler
+    handling in other algorithms. '''
     if type(clause) is Eq:
         return In(clause.attribute, [clause.value])
     if type(clause) is Not:
-        sub = clause.clause
+        sub = _normalise_input(clause.clause)
         if type(sub) is Ge:
             return Lt(sub.attribute, sub.value)
         if type(sub) is Gt:
@@ -61,12 +60,14 @@ def _normalise_input(clause):
             return Ge(sub.attribute, sub.value)
         if type(sub) is In:
             return NotIn(sub.attribute, sub.valueset)
-        if type(sub) is Eq:
-            return NotIn(sub.attribute, {sub.value})
+        if type(sub) is NotIn:
+            return In(sub.attribute, sub.valueset)
     return clause
 
 
 def _normalise_output(clause):
+    ''' For output consistency. Replace temporary NotIn objects with expression
+    objects. Return In expressions with one value as Eq expresions.'''
     if type(clause) is In and len(clause.valueset) == 1:
         return Eq(clause.attribute, next(iter(clause.valueset)))
     if type(clause) is NotIn:
@@ -81,17 +82,41 @@ HANDLED_CLAUSES = (Le, Lt, Ge, Gt, In, NotIn)
 
 
 def simplify_flat_and(expression):
-    ''' Simplify Le/Lt/Ge/Gt/Eq/In expressions joined by And clause. '''
+    ''' Simplify Le/Lt/Ge/Gt/Eq/In expressions joined by And relation. Clauses
+    are grouped by attribute and redundant expressions are eliminated or
+    reduced where possible.
+
+    Input must be an And expression. Any And/Or clauses below this level will
+    not be handled (logical resolution should be applied first).
+
+    Output guarantees:
+        - No redundancy between 'simple' expressions in the top level.
+        - Guaranteed false if there is a conflict between any simple
+        expressions at the top level.
+
+    A 'simple' expression is any Eq/In/Le/Lt/Ge/Gt relation, or any of those
+    relations within an (arbitrarily deep) Not clause. Hence the ideal use case
+    is to run this algorithm on each component of an expression in DNF form.
+    '''
     assert type(expression) is And
+
     # Group expressions that can be simplified by attribute. Anything
     # not in scope for this algorithm is passed straight to output_clauses.
     by_attribute = collections.defaultdict(list)
     other_clauses = []
     for clause in (_normalise_input(cl) for cl in expression.clauses):
-        if type(clause) in HANDLED_CLAUSES:
+        if clause is False:
+            return False
+        elif clause is True:
+            continue
+        elif type(clause) in HANDLED_CLAUSES:
             by_attribute[clause.attribute].append(clause)
         else:
             other_clauses.append(clause)
+
+    if len(by_attribute) == 0 and len(other_clauses) == 0:
+        # All must have been True (hence skipped).
+        return True
 
     # Every clause encountered in this loop is Le/Lt/Ge/Gt/In for the
     # given attribute.

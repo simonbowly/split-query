@@ -18,6 +18,8 @@ from .strategies import *
         st.sampled_from([True, False])),
     max_leaves=100))
 def test_substitution_result(expression):
+    ''' If passed a complete dictionary of True/False assignments to relations,
+    substitution always gives a True/False result. '''
     variables = get_variables(expression)
     assignments = {
         variable: assignment for variable, assignment
@@ -39,7 +41,7 @@ def test_to_dnf_clauses(expression):
 def validate(obj):
     ''' Throws an error if any structures which should have been simplified
     were not. This applies to any expression which is the result of
-    simplify_tree or simplify_domain. The result should not contain:
+    simplify_tree. The result should not contain:
 
     * Any boolean literals (unless the final result is True/False).
     * Any nested Ands/Ors (of the same type).
@@ -90,6 +92,9 @@ def test_simplify_tree_literal(expression):
 simple = st.sampled_from('abcd') | st.sampled_from('abcd').map(Not)
 flat_and = st.lists(simple, min_size=2).map(And)
 dnf = st.lists(flat_and, min_size=2).map(Or)
+not_dnf = (
+    dnf.map(Not) | st.lists(dnf, min_size=1).map(And) | st.lists(dnf, min_size=1).map(Or) |
+    st.lists(flat_and, min_size=1).map(And))
 
 
 @given(simple)
@@ -113,21 +118,28 @@ def test_dnf(expression):
     assert is_dnf(expression)
 
 
+@given(not_dnf)
+def test_not_dnf(expression):
+    assert not is_dnf(expression)
+
+
 varied_flat_and = st.lists(simple, min_size=1).map(lambda clauses: clauses[0] if len(clauses) == 1 else And(clauses))
 varied_dnf = st.lists(varied_flat_and, min_size=1).map(lambda clauses: clauses[0] if len(clauses) == 1 else Or(clauses))
-
-
-@given(varied_dnf, varied_dnf | varied_flat_and.map(Not))
-def test_heuristic(expression1, expression2):
+heuristic_input = varied_dnf | varied_flat_and.map(Not)
+@given(st.lists(heuristic_input, min_size=2, max_size=3))
+def test_heuristic(expressions):
+    ''' The heuristic_input strategy always produces valid expressions which
+    to_dnf_expand_heuristic should correctly expand when joined by an And
+    clause. '''
     # Input stats.
-    if is_simple(expression1) or is_simple(expression2):
+    if any(is_simple(expression) for expression in expressions):
         event('Simple')
-    elif is_flat_and(expression1) or is_flat_and(expression2):
+    if any(is_flat_and(expression) for expression in expressions):
         event('Flat AND')
-    elif is_dnf(expression1) or is_dnf(expression2):
+    if any(is_dnf(expression) for expression in expressions):
         event('DNF')
     # Algebraic expansion result.
-    expression = And([expression1, expression2])
+    expression = And(expressions)
     result = to_dnf_expand_heuristic(expression)
     assert is_dnf(result)
     # Truth table expansion of both (logical equivalence).

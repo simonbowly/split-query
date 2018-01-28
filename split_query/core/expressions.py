@@ -94,7 +94,7 @@ class And(LogicalRelation):
         self.clauses = tuple(clauses)
 
     def __repr__(self):
-        return 'AND({})'.format(repr(list(self.clauses)))
+        return 'AND({})'.format(repr(self.clauses))
 
     def __eq__(self, other):
         return isinstance(other, And) and (self.clauses == other.clauses)
@@ -110,7 +110,7 @@ class Or(LogicalRelation):
         self.clauses = tuple(clauses)
 
     def __repr__(self):
-        return 'OR({})'.format(repr(list(self.clauses)))
+        return 'OR({})'.format(repr(self.clauses))
 
     def __eq__(self, other):
         return isinstance(other, Or) and (self.clauses == other.clauses)

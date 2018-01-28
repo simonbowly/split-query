@@ -6,3 +6,4 @@ from .expand import to_dnf_simplified
 from .expressions import Attribute, And, Or, Not, Eq, Le, Lt, Ge, Gt, Eq, In
 from .logic import simplify_tree
 from .serialise import default, object_hook
+from .wrappers import attribute, expression
