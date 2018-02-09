@@ -104,7 +104,7 @@ def split_parameters(expression, parameters):
     attributes = [param['attr'] for param in parameters]
 
     # Break query into subqueries for extract_parameters.
-    expanded = to_dnf_simplified(expression)
+    expanded = to_dnf_simplified(expression, use_truth_table=True)
     if isinstance(expanded, And):
         subqueries = [expanded]
     elif isinstance(expanded, Or):
