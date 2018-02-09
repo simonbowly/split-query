@@ -30,4 +30,4 @@ Install from PyPI using::
 
 Install from Conda channel using::
 
-    $ conda install -c defaults -c conda-forge -c simonbowly split-query
+    $ conda install -c simonbowly split-query
