@@ -1,8 +1,8 @@
 {% set name = "split-query" %}
-{% set version = "0.2.1" %}
+{% set version = "0.2.2" %}
 {% set file_ext = "tar.gz" %}
 {% set hash_type = "sha256" %}
-{% set hash_value = "aa6587d0cfbbca36b3ea08fcd743134c6b9b05f07ac7bde028e3fd9fa11ade7c" %}
+{% set hash_value = "4fed2ff9e2ecdcd35ea684e17df337999ffd3232eebd05cab083d2f9b12aa682" %}
 
 package:
   name: '{{ name|lower }}'
@@ -35,11 +35,17 @@ test:
   imports:
     - split_query
     - split_query.core
+    - split_query.core.domain
+    - split_query.core.expand
+    - split_query.core.expressions
+    - split_query.core.logic
+    - split_query.core.serialise
+    - split_query.core.wrappers
     - split_query.cache
     - split_query.decorators
     - split_query.engine
+    - split_query.extract
     - split_query.interface
-    - split_query.remote
 
 about:
   home: https://github.com/simonbowly/split-query
