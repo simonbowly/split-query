@@ -5,6 +5,7 @@ as if it is contained in a single dataframe. '''
 from .core.expressions import Attribute, And
 from .core.logic import simplify_tree
 from .core.wrappers import AttributeContainer, ExpressionContainer
+from .server import serve_zmq
 
 
 class DataSet(object):
@@ -72,3 +73,6 @@ class DataSet(object):
 
     def get(self):
         return self.backend.get(self.expr)
+
+    def serve_zmq(self, port):
+        serve_zmq(self, port)
