@@ -35,14 +35,6 @@ def load_causer_pays_zipfile(file_name):
     return pd.concat(list(read_causer_pays_zip(io.BytesIO(response.content))))
 
 
-def round_down_30mins(dt):
-    return datetime(dt.year, dt.month, dt.day, dt.hour, (dt.minute // 30) * 30)
-
-
-def offset_30mins(dt):
-    return dt + timedelta(minutes=30)
-
-
 @dataset(name='AEMO Element Names', attributes=ELEMENTS_FILE_HEADERS)
 @cache_persistent('aemo_element_names')
 class AEMOElementNames(object):
@@ -67,8 +59,8 @@ class AEMOElementNames(object):
 @remote_parameters(
     range_parameter(
         'datetime', key_lower='from_dt', key_upper='to_dt',
-        round_down=round_down_30mins,
-        offset=offset_30mins))
+        round_down=lambda dt: datetime(dt.year, dt.month, dt.day, dt.hour, (dt.minute // 30) * 30),
+        offset=lambda dt: dt + timedelta(minutes=30)))
 class AEMOCauserPays(object):
     ''' '''
     def get(self, from_dt, to_dt):
@@ -80,8 +72,32 @@ class AEMOCauserPays(object):
         return load_causer_pays_zipfile(file_name)
 
 
+@dataset(
+    name='AEMO Causer Pays 5min',
+    attributes=['datetime', 'element_id', 'variable_id', 'value'])
+@cache_persistent('aemo_causer_pays_5min')
+@remote_parameters(
+    range_parameter(
+        'datetime', key_lower='from_dt', key_upper='to_dt',
+        round_down=lambda dt: datetime(dt.year, dt.month, dt.day, dt.hour, 0, 0),
+        offset=lambda dt: dt + timedelta(hours=1)))
+class AEMOCauserPays5min(object):
+    ''' '''
+    data_4sec = AEMOCauserPays()
+
+    def get(self, from_dt, to_dt):
+        logger.info(f'Aggregating for {from_dt.isoformat()} -> {to_dt.isoformat()}')
+        df = self.data_4sec[self.data_4sec.datetime.between(from_dt, to_dt)].get()
+        return (
+            df.groupby([pd.Grouper(key='datetime', freq='5T'), 'element_id', 'variable_id'])
+            .value.mean().reset_index())
+
+
 if __name__ == '__main__':
+
     logging.basicConfig(level=logging.INFO)
-    aemo_data = AEMOCauserPays()
-    df = aemo_data[aemo_data.datetime.between(datetime(2018, 6, 8, 0, 0), datetime(2018, 6, 8, 2, 1))].get()
-    print(df.datetime.min(), df.datetime.max())
+    aemo_data = AEMOCauserPays5min()
+    df = aemo_data[
+        aemo_data.datetime.between(datetime(2018, 7, 8, 0, 0), datetime(2018, 7, 8, 2, 1))
+        & aemo_data.element_id.isin([313, 314])].get()
+    print(df)

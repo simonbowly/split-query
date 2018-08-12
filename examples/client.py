@@ -13,7 +13,7 @@ from split_query.server import request_zmq
 
 @dataset(
     name='AEMO Causer Pays Remote',
-    attributes=['datetime', 'element_id', 'variable_id', 'value', 'value_quality'])
+    attributes=['datetime', 'element_id', 'variable_id', 'value'])
 class AEMOCauserPaysRemote(object):
     ''' No cache needed, just a front end to a local service. '''
 

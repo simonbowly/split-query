@@ -2,6 +2,6 @@
 
 import logging
 logging.basicConfig(level=logging.INFO)
-from aemo import AEMOCauserPays
+from aemo import AEMOCauserPays5min
 
-AEMOCauserPays().serve_zmq(port=5566)
+AEMOCauserPays5min().serve_zmq(port=5566)
